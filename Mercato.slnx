@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <File Path="TextFile1.txt" />
     <Project Path="../src/Mercato/API/API.csproj" />
     <Project Path="../src/Mercato/Application/Application.csproj" />
     <Project Path="../src/Mercato/Domain/Domain.csproj" />
