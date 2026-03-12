@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <File Path="TextFile1.txt" />
+    <Project Path="../src/Mercato/API/API.csproj" />
+    <Project Path="../src/Mercato/Application/Application.csproj" />
+    <Project Path="../src/Mercato/Domain/Domain.csproj" />
+    <Project Path="../src/Mercato/Infrastructure/Infrastructure.csproj" />
+    <Project Path="src/Mercato.Domain/Mercato.Domain.csproj" Id="9b63d999-81f1-48ec-a14f-9eb3ab047d8a" />
+  </Folder>
+</Solution>
