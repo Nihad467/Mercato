@@ -1,9 +1,9 @@
-﻿using Mercato.Domain.Entities.Common;
+﻿namespace Mercato.Application.Product.DTOs;
 
-namespace Mercato.Domain.Entities;
-
-public class Product : BaseEntity
+public class UpdateProductDto
 {
+    public Guid Id { get; set; }
+
     public string Name { get; set; } = string.Empty;
 
     public string Description { get; set; } = string.Empty;
@@ -13,6 +13,4 @@ public class Product : BaseEntity
     public int Stock { get; set; }
 
     public Guid CategoryId { get; set; }
-
-    public Category Category { get; set; }
 }
