@@ -1,10 +1,9 @@
 <Solution>
   <Folder Name="/src/">
     <File Path="TextFile1.txt" />
-    <Project Path="../src/Mercato/API/API.csproj" />
-    <Project Path="../src/Mercato/Application/Application.csproj" />
-    <Project Path="../src/Mercato/Domain/Domain.csproj" />
-    <Project Path="../src/Mercato/Infrastructure/Infrastructure.csproj" />
+    <Project Path="src/Mercato.API/Mercato.API.csproj" Id="e5f88d12-643e-4a84-9f16-a48aa58c3d20" />
+    <Project Path="src/Mercato.Application/Mercato.Application.csproj" Id="798e722c-058d-4690-90c7-d2d074692eda" />
     <Project Path="src/Mercato.Domain/Mercato.Domain.csproj" Id="9b63d999-81f1-48ec-a14f-9eb3ab047d8a" />
+    <Project Path="src/Mercato.Infrastructure/Mercato.Infrastructure.csproj" Id="1cc3eeb1-a48b-46d1-97f6-387a0a14367f" />
   </Folder>
 </Solution>
