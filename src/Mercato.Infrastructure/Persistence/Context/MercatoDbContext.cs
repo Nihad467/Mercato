@@ -1,10 +1,10 @@
-﻿using Mercato.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
-using System.Reflection.Emit;
+﻿using Microsoft.EntityFrameworkCore;
+using Mercato.Application.Common.Interfaces;
+using Mercato.Domain.Entities;
 
 namespace Mercato.Infrastructure.Persistence.Context;
 
-public class MercatoDbContext : DbContext
+public class MercatoDbContext : DbContext, IApplicationDbContext
 {
     public MercatoDbContext(DbContextOptions<MercatoDbContext> options)
         : base(options)
@@ -13,10 +13,8 @@ public class MercatoDbContext : DbContext
 
     public DbSet<Product> Products => Set<Product>();
 
-    public DbSet<Category> Categories => Set<Category>();
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    public async Task AddProductAsync(Product product, CancellationToken cancellationToken)
     {
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(MercatoDbContext).Assembly);
+        await Products.AddAsync(product, cancellationToken);
     }
 }
