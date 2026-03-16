@@ -17,4 +17,14 @@ public class MercatoDbContext : DbContext, IApplicationDbContext
     {
         await Products.AddAsync(product, cancellationToken);
     }
+
+    public async Task<Product?> GetProductByIdAsync(int id, CancellationToken cancellationToken)
+    {
+        return await Products.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+    }
+
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        return await base.SaveChangesAsync(cancellationToken);
+    }
 }

@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Mercato.Application.Product.Commands.CreateProduct;
+using Mercato.Application.Product.Commands.UpdateProduct;
 using Mercato.Application.Product.DTOs;
 using Mercato.Application.Products.Commands.CreateProduct;
 using Microsoft.AspNetCore.Mvc;
@@ -24,6 +25,14 @@ public class ProductsController : ControllerBase
 
         var result = await _mediator.Send(command);
 
+        return Ok(result);
+    }
+
+    [HttpPut]
+    public async Task<IActionResult> Update(UpdateProductDto dto)
+    {
+        var command = new UpdateProductCommand(dto);
+        var result = await _mediator.Send(command);
         return Ok(result);
     }
 }
