@@ -3,8 +3,10 @@ using Mercato.Application.Product.Commands.CreateProduct;
 using Mercato.Application.Product.Commands.UpdateProduct;
 using Mercato.Application.Product.DTOs;
 using Mercato.Application.Products.Commands.CreateProduct;
+using Mercato.Application.Products.Commands.DeleteProduct;
 using Microsoft.AspNetCore.Mvc;
-
+using Mercato.Application.Product.Queries.GetAllProducts;
+using Mercato.Application.Product.Queries.GetProductById;
 namespace Mercato.API.Controllers;
 
 [ApiController]
@@ -33,6 +35,36 @@ public class ProductsController : ControllerBase
     {
         var command = new UpdateProductCommand(dto);
         var result = await _mediator.Send(command);
+
+        return Ok(result);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var command = new DeleteProductCommand(id);
+        var result = await _mediator.Send(command);
+
+        if (!result)
+            return NotFound(new { message = "Product tapılmadı" });
+
+        return NoContent();
+    }
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var result = await _mediator.Send(new GetAllProductsQuery());
+        return Ok(result);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        var result = await _mediator.Send(new GetProductByIdQuery(id));
+
+        if (result is null)
+            return NotFound(new { message = "Product tapılmadı" });
+
         return Ok(result);
     }
 }
