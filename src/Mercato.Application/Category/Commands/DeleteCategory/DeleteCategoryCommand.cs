@@ -2,4 +2,4 @@
 
 namespace Mercato.Application.Category.Commands.DeleteCategory;
 
-public record DeleteCategoryCommand(int Id) : IRequest<bool>;
+public record DeleteCategoryCommand(int Id) : IRequest<DeleteCategoryResult>;

@@ -17,6 +17,11 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
     {
         var dto = request.Product;
 
+        var categoryExists = await _context.CategoryExistsAsync(dto.CategoryId, cancellationToken);
+
+        if (!categoryExists)
+            throw new Exception("Verilən CategoryId mövcud deyil.");
+
         var product = new Mercato.Domain.Entities.Product
         {
             Name = dto.Name,

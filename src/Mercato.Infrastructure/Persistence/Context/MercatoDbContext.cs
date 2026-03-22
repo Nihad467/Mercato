@@ -58,6 +58,16 @@ public class MercatoDbContext : DbContext, IApplicationDbContext
         return await Categories.ToListAsync(cancellationToken);
     }
 
+    public async Task<bool> CategoryExistsAsync(int categoryId, CancellationToken cancellationToken)
+    {
+        return await Categories.AnyAsync(x => x.Id == categoryId, cancellationToken);
+    }
+
+    public async Task<bool> CategoryHasProductsAsync(int categoryId, CancellationToken cancellationToken)
+    {
+        return await Products.AnyAsync(x => x.CategoryId == categoryId, cancellationToken);
+    }
+
     public void RemoveCategory(Mercato.Domain.Entities.Category category)
     {
         Categories.Remove(category);
@@ -67,4 +77,5 @@ public class MercatoDbContext : DbContext, IApplicationDbContext
     {
         return base.SaveChangesAsync(cancellationToken);
     }
+
 }

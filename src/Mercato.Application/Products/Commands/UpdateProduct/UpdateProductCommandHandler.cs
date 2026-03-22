@@ -1,10 +1,9 @@
 ﻿using MediatR;
 using Mercato.Application.Common.Interfaces;
-using Mercato.Application.Product.Commands.UpdateProduct;
 
-namespace Mercato.Application.Products.Commands.UpdateProduct;
+namespace Mercato.Application.Product.Commands.UpdateProduct;
 
-public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand, int>
+public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand, bool>
 {
     private readonly IApplicationDbContext _context;
 
@@ -13,14 +12,19 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         _context = context;
     }
 
-    public async Task<int> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
+    public async Task<bool> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
     {
         var dto = request.Product;
 
         var product = await _context.GetProductByIdAsync(dto.Id, cancellationToken);
 
         if (product is null)
-            throw new Exception("Product not found");
+            return false;
+
+        var categoryExists = await _context.CategoryExistsAsync(dto.CategoryId, cancellationToken);
+
+        if (!categoryExists)
+            throw new Exception("Verilən CategoryId mövcud deyil.");
 
         product.Name = dto.Name;
         product.Description = dto.Description;
@@ -30,6 +34,6 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        return product.Id;
+        return true;
     }
 }

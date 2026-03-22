@@ -44,11 +44,13 @@ public class CategoriesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var command = new DeleteCategoryCommand(id);
-        var result = await _mediator.Send(command);
+        var result = await _mediator.Send(new DeleteCategoryCommand(id));
 
-        if (!result)
-            return NotFound(new { message = "Category tapılmadı" });
+        if (!result.IsSuccess && result.Message == "Category tapılmadı.")
+            return NotFound(new { message = result.Message });
+
+        if (!result.IsSuccess)
+            return BadRequest(new { message = result.Message });
 
         return NoContent();
     }
