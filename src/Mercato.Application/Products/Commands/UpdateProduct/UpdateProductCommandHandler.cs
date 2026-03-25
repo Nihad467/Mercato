@@ -3,23 +3,27 @@ using Mercato.Application.Common.Interfaces;
 
 namespace Mercato.Application.Product.Commands.UpdateProduct;
 
-public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand, bool>
+public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand, int>
 {
     private readonly IApplicationDbContext _context;
+    private readonly IFileStorageService _fileStorageService;
 
-    public UpdateProductCommandHandler(IApplicationDbContext context)
+    public UpdateProductCommandHandler(
+        IApplicationDbContext context,
+        IFileStorageService fileStorageService)
     {
         _context = context;
+        _fileStorageService = fileStorageService;
     }
 
-    public async Task<bool> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
+    public async Task<int> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
     {
         var dto = request.Product;
 
         var product = await _context.GetProductByIdAsync(dto.Id, cancellationToken);
 
         if (product is null)
-            return false;
+            throw new Exception("Product tapılmadı.");
 
         var categoryExists = await _context.CategoryExistsAsync(dto.CategoryId, cancellationToken);
 
@@ -32,8 +36,40 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         product.Stock = dto.Stock;
         product.CategoryId = dto.CategoryId;
 
+        if (dto.Images is not null && dto.Images.Count > 0)
+        {
+            foreach (var oldImage in product.Images.ToList())
+            {
+                await _fileStorageService.DeleteFileAsync(oldImage.ObjectKey, cancellationToken);
+            }
+
+            _context.RemoveProductImages(product.Images.ToList());
+            product.Images.Clear();
+
+            for (int i = 0; i < dto.Images.Count; i++)
+            {
+                var image = dto.Images[i];
+
+                using var stream = image.OpenReadStream();
+
+                var objectKey = await _fileStorageService.SaveAsync(
+                    stream,
+                    image.FileName,
+                    image.ContentType,
+                    cancellationToken);
+
+                product.Images.Add(new Mercato.Domain.Entities.ProductImage
+                {
+                    ProductId = product.Id,
+                    ObjectKey = objectKey,
+                    IsMain = i == 0,
+                    Order = i
+                });
+            }
+        }
+
         await _context.SaveChangesAsync(cancellationToken);
 
-        return true;
+        return product.Id;
     }
 }

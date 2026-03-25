@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="docker-compose.yml" />
+  </Folder>
   <Folder Name="/src/">
     <File Path="TextFile1.txt" />
     <Project Path="src/Mercato.API/Mercato.API.csproj" Id="e5f88d12-643e-4a84-9f16-a48aa58c3d20" />

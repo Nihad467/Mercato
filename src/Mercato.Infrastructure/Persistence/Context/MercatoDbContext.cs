@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Mercato.Application.Common.Interfaces;
+using Mercato.Domain.Entities;
 
 namespace Mercato.Infrastructure.Persistence.Context;
 
@@ -10,50 +11,86 @@ public class MercatoDbContext : DbContext, IApplicationDbContext
     {
     }
 
-    public DbSet<Mercato.Domain.Entities.Product> Products => Set<Mercato.Domain.Entities.Product>();
-    public DbSet<Mercato.Domain.Entities.Category> Categories => Set<Mercato.Domain.Entities.Category>();
+    public DbSet<Product> Products => Set<Product>();
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<Mercato.Domain.Entities.Product>().ToTable("Products");
-        modelBuilder.Entity<Mercato.Domain.Entities.Category>().ToTable("Category");
+        modelBuilder.Entity<Product>(entity =>
+        {
+            entity.ToTable("Products");
+
+            entity.Property(x => x.Price)
+                .HasPrecision(18, 2);
+
+            entity.HasOne(x => x.Category)
+                .WithMany(c => c.Products)
+                .HasForeignKey(x => x.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Category>(entity =>
+        {
+            entity.ToTable("Categories");
+        });
+
+        modelBuilder.Entity<ProductImage>(entity =>
+        {
+            entity.ToTable("ProductImages");
+
+            entity.Property(x => x.ObjectKey)
+                .IsRequired()
+                .HasMaxLength(500);
+
+            entity.Property(x => x.Order)
+                .HasDefaultValue(0);
+
+            entity.HasOne(x => x.Product)
+                .WithMany(x => x.Images)
+                .HasForeignKey(x => x.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 
-    public async Task AddProductAsync(Mercato.Domain.Entities.Product product, CancellationToken cancellationToken)
+    public async Task AddProductAsync(Product product, CancellationToken cancellationToken)
     {
         await Products.AddAsync(product, cancellationToken);
     }
 
-    public async Task<Mercato.Domain.Entities.Product?> GetProductByIdAsync(int id, CancellationToken cancellationToken)
+    public async Task<Product?> GetProductByIdAsync(int id, CancellationToken cancellationToken)
     {
         return await Products
             .Include(x => x.Category)
+            .Include(x => x.Images)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
     public async Task<List<Mercato.Domain.Entities.Product>> GetAllProductsAsync(CancellationToken cancellationToken)
     {
-        return await Products.ToListAsync(cancellationToken);
+        return await Products
+            .Include(x => x.Category)
+            .Include(x => x.Images)
+            .ToListAsync(cancellationToken);
     }
-
-    public void RemoveProduct(Mercato.Domain.Entities.Product product)
+    public void RemoveProduct(Product product)
     {
         Products.Remove(product);
     }
 
-    public async Task AddCategoryAsync(Mercato.Domain.Entities.Category category, CancellationToken cancellationToken)
+    public async Task AddCategoryAsync(Category category, CancellationToken cancellationToken)
     {
         await Categories.AddAsync(category, cancellationToken);
     }
 
-    public async Task<Mercato.Domain.Entities.Category?> GetCategoryByIdAsync(int id, CancellationToken cancellationToken)
+    public async Task<Category?> GetCategoryByIdAsync(int id, CancellationToken cancellationToken)
     {
         return await Categories.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
-    public async Task<List<Mercato.Domain.Entities.Category>> GetAllCategoriesAsync(CancellationToken cancellationToken)
+    public async Task<List<Category>> GetAllCategoriesAsync(CancellationToken cancellationToken)
     {
         return await Categories.ToListAsync(cancellationToken);
     }
@@ -68,7 +105,7 @@ public class MercatoDbContext : DbContext, IApplicationDbContext
         return await Products.AnyAsync(x => x.CategoryId == categoryId, cancellationToken);
     }
 
-    public void RemoveCategory(Mercato.Domain.Entities.Category category)
+    public void RemoveCategory(Category category)
     {
         Categories.Remove(category);
     }
@@ -77,5 +114,8 @@ public class MercatoDbContext : DbContext, IApplicationDbContext
     {
         return base.SaveChangesAsync(cancellationToken);
     }
-
+    public void RemoveProductImages(IEnumerable<Mercato.Domain.Entities.ProductImage> images)
+    {
+        ProductImages.RemoveRange(images);
+    }
 }

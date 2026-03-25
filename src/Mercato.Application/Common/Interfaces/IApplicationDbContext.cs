@@ -6,6 +6,7 @@ public interface IApplicationDbContext
     Task<Mercato.Domain.Entities.Product?> GetProductByIdAsync(int id, CancellationToken cancellationToken);
     Task<List<Mercato.Domain.Entities.Product>> GetAllProductsAsync(CancellationToken cancellationToken);
     void RemoveProduct(Mercato.Domain.Entities.Product product);
+    void RemoveProductImages(IEnumerable<Mercato.Domain.Entities.ProductImage> images);
 
     Task AddCategoryAsync(Mercato.Domain.Entities.Category category, CancellationToken cancellationToken);
     Task<Mercato.Domain.Entities.Category?> GetCategoryByIdAsync(int id, CancellationToken cancellationToken);

@@ -2,7 +2,9 @@ using MediatR;
 using Mercato.Application.Common.Interfaces;
 using Mercato.Application.Product.Commands.CreateProduct;
 using Mercato.Application.Products.Commands.CreateProduct;
+using Mercato.Infrastructure.Extensions;
 using Mercato.Infrastructure.Persistence.Context;
+using Mercato.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,15 +17,19 @@ builder.Services.AddSwaggerGen();
 
 // DbContext
 builder.Services.AddDbContext<MercatoDbContext>(options =>
-options.UseSqlServer(
-builder.Configuration.GetConnectionString("DefaultConnection")
-));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+    ));
 
 // Interface → Implementation
 builder.Services.AddScoped<IApplicationDbContext>(provider =>
-provider.GetRequiredService<MercatoDbContext>());
+    provider.GetRequiredService<MercatoDbContext>());
 
-// MediatR registration (MediatR v11 üçün düzgün syntax)
+// MinIO registration
+builder.Services.AddMinioStorage(builder.Configuration);
+builder.Services.AddScoped<IFileStorageService, S3MinioFileStorageService>();
+
+// MediatR registration
 builder.Services.AddMediatR(typeof(CreateProductCommand).Assembly);
 
 var app = builder.Build();

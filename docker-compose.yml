@@ -1,0 +1,16 @@
+services:
+  minio:
+    image: minio/minio
+    container_name: mercato-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    volumes:
+      - minio-data:/data
+
+volumes:
+  minio-data:

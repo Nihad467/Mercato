@@ -21,21 +21,18 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(CreateProductDto dto)
+    public async Task<IActionResult> Create([FromForm] CreateProductDto dto)
     {
         var command = new CreateProductCommand(dto);
-
         var result = await _mediator.Send(command);
-
         return Ok(result);
     }
-
-    [HttpPut]
-    public async Task<IActionResult> Update(UpdateProductDto dto)
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromForm] UpdateProductDto dto)
     {
+        dto.Id = id;
         var command = new UpdateProductCommand(dto);
         var result = await _mediator.Send(command);
-
         return Ok(result);
     }
 

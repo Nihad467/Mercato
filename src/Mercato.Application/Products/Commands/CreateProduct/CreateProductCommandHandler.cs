@@ -1,16 +1,21 @@
 ﻿using MediatR;
 using Mercato.Application.Common.Interfaces;
 using Mercato.Application.Product.Commands.CreateProduct;
+using Mercato.Domain.Entities;
 
 namespace Mercato.Application.Products.Commands.CreateProduct;
 
 public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand, int>
 {
     private readonly IApplicationDbContext _context;
+    private readonly IFileStorageService _fileStorageService;
 
-    public CreateProductCommandHandler(IApplicationDbContext context)
+    public CreateProductCommandHandler(
+        IApplicationDbContext context,
+        IFileStorageService fileStorageService)
     {
         _context = context;
+        _fileStorageService = fileStorageService;
     }
 
     public async Task<int> Handle(CreateProductCommand request, CancellationToken cancellationToken)
@@ -30,6 +35,29 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
             Stock = dto.Stock,
             CategoryId = dto.CategoryId
         };
+
+        if (dto.Images is not null && dto.Images.Count > 0)
+        {
+            for (int i = 0; i < dto.Images.Count; i++)
+            {
+                var image = dto.Images[i];
+
+                using var stream = image.OpenReadStream();
+
+                var objectKey = await _fileStorageService.SaveAsync(
+                    stream,
+                    image.FileName,
+                    image.ContentType,
+                    cancellationToken);
+
+                product.Images.Add(new ProductImage
+                {
+                    ObjectKey = objectKey,
+                    IsMain = i == 0,
+                    Order = i
+                });
+            }
+        }
 
         await _context.AddProductAsync(product, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
