@@ -1,28 +1,26 @@
 ﻿using MediatR;
 using Mercato.Application.Common.Interfaces;
-using Mercato.Application.Product.DTOs;
+using Mercato.Application.Common.Models.Pagination;
+using Mercato.Application.Products.DTOs;
 
-namespace Mercato.Application.Product.Queries.GetAllProducts;
+namespace Mercato.Application.Products.Queries.GetAllProducts;
 
-public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, List<GetAllProductsDto>>
+public class GetAllProductsQueryHandler
+    : IRequestHandler<GetAllProductsQuery, PagedResponse<ProductListItemDto>>
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IProductQueryService _productQueryService;
 
-    public GetAllProductsQueryHandler(IApplicationDbContext context)
+    public GetAllProductsQueryHandler(IProductQueryService productQueryService)
     {
-        _context = context;
+        _productQueryService = productQueryService;
     }
 
-    public async Task<List<GetAllProductsDto>> Handle(GetAllProductsQuery request, CancellationToken cancellationToken)
+    public async Task<PagedResponse<ProductListItemDto>> Handle(
+        GetAllProductsQuery request,
+        CancellationToken cancellationToken)
     {
-        var products = await _context.GetAllProductsAsync(cancellationToken);
-
-        return products.Select(product => new GetAllProductsDto
-        {
-            Id = product.Id,
-            Name = product.Name,
-            Price = product.Price,
-            Stock = product.Stock
-        }).ToList();
+        return await _productQueryService.GetPagedAsync(
+            request.Parameters,
+            cancellationToken);
     }
 }

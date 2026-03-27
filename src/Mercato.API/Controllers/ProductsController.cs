@@ -1,12 +1,13 @@
 ﻿using MediatR;
+using Mercato.Application.Common.Models.Pagination;
 using Mercato.Application.Product.Commands.CreateProduct;
 using Mercato.Application.Product.Commands.UpdateProduct;
 using Mercato.Application.Product.DTOs;
+using Mercato.Application.Product.Queries.GetProductById;
 using Mercato.Application.Products.Commands.CreateProduct;
 using Mercato.Application.Products.Commands.DeleteProduct;
+using Mercato.Application.Products.Queries.GetAllProducts;
 using Microsoft.AspNetCore.Mvc;
-using Mercato.Application.Product.Queries.GetAllProducts;
-using Mercato.Application.Product.Queries.GetProductById;
 namespace Mercato.API.Controllers;
 
 [ApiController]
@@ -48,11 +49,17 @@ public class ProductsController : ControllerBase
         return NoContent();
     }
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] ProductQueryParameters parameters)
     {
-        var result = await _mediator.Send(new GetAllProductsQuery());
+        var query = new GetAllProductsQuery
+        {
+            Parameters = parameters
+        };
+
+        var result = await _mediator.Send(query);
         return Ok(result);
     }
+
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)

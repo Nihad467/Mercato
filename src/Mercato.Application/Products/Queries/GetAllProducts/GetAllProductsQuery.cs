@@ -1,6 +1,10 @@
 ﻿using MediatR;
-using Mercato.Application.Product.DTOs;
+using Mercato.Application.Common.Models.Pagination;
+using Mercato.Application.Products.DTOs;
 
-namespace Mercato.Application.Product.Queries.GetAllProducts;
+namespace Mercato.Application.Products.Queries.GetAllProducts;
 
-public record GetAllProductsQuery : IRequest<List<GetAllProductsDto>>;
+public class GetAllProductsQuery : IRequest<PagedResponse<ProductListItemDto>>
+{
+    public ProductQueryParameters Parameters { get; set; } = new();
+}
