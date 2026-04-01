@@ -1,4 +1,6 @@
-﻿namespace Mercato.Application.Common.Interfaces;
+﻿using Mercato.Domain.Entities;
+
+namespace Mercato.Application.Common.Interfaces;
 
 public interface IApplicationDbContext
 {
@@ -13,6 +15,10 @@ public interface IApplicationDbContext
     Task<List<Mercato.Domain.Entities.Category>> GetAllCategoriesAsync(CancellationToken cancellationToken);
     Task<bool> CategoryExistsAsync(int categoryId, CancellationToken cancellationToken);
     Task<bool> CategoryHasProductsAsync(int categoryId, CancellationToken cancellationToken);
+    Task AddRefreshTokenAsync(RefreshToken refreshToken, CancellationToken cancellationToken);
+    Task<RefreshToken?> GetRefreshTokenAsync(string token, CancellationToken cancellationToken);
+    void RemoveRefreshToken(RefreshToken refreshToken);
+
     void RemoveCategory(Mercato.Domain.Entities.Category category);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);

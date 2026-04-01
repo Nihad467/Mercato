@@ -5,6 +5,7 @@ using Mercato.Application.Category.Commands.UpdateCategory;
 using Mercato.Application.Category.DTOs;
 using Mercato.Application.Category.Queries.GetAllCategories;
 using Mercato.Application.Category.Queries.GetCategoryById;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Mercato.API.Controllers;
@@ -21,7 +22,8 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(CreateCategoryDto dto)
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Create([FromBody] CreateCategoryDto dto)
     {
         var command = new CreateCategoryCommand(dto);
         var result = await _mediator.Send(command);
@@ -29,9 +31,12 @@ public class CategoriesController : ControllerBase
         return Ok(result);
     }
 
-    [HttpPut]
-    public async Task<IActionResult> Update(UpdateCategoryDto dto)
+    [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateCategoryDto dto)
     {
+        dto.Id = id;
+
         var command = new UpdateCategoryCommand(dto);
         var result = await _mediator.Send(command);
 
@@ -42,6 +47,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _mediator.Send(new DeleteCategoryCommand(id));
@@ -56,6 +62,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetAll()
     {
         var result = await _mediator.Send(new GetAllCategoriesQuery());
@@ -63,6 +70,7 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _mediator.Send(new GetCategoryByIdQuery(id));

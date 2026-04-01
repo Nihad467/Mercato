@@ -7,7 +7,9 @@ using Mercato.Application.Product.Queries.GetProductById;
 using Mercato.Application.Products.Commands.CreateProduct;
 using Mercato.Application.Products.Commands.DeleteProduct;
 using Mercato.Application.Products.Queries.GetAllProducts;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+
 namespace Mercato.API.Controllers;
 
 [ApiController]
@@ -22,22 +24,28 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromForm] CreateProductDto dto)
     {
         var command = new CreateProductCommand(dto);
         var result = await _mediator.Send(command);
         return Ok(result);
     }
+
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Update(int id, [FromForm] UpdateProductDto dto)
     {
         dto.Id = id;
+
         var command = new UpdateProductCommand(dto);
         var result = await _mediator.Send(command);
+
         return Ok(result);
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
     {
         var command = new DeleteProductCommand(id);
@@ -48,7 +56,9 @@ public class ProductsController : ControllerBase
 
         return NoContent();
     }
+
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetAll([FromQuery] ProductQueryParameters parameters)
     {
         var query = new GetAllProductsQuery
@@ -60,8 +70,8 @@ public class ProductsController : ControllerBase
         return Ok(result);
     }
 
-
     [HttpGet("{id}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _mediator.Send(new GetProductByIdQuery(id));
