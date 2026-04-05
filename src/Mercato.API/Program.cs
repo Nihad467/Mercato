@@ -17,10 +17,8 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Controllers
 builder.Services.AddControllers();
 
-// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -56,30 +54,26 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// DbContext
 builder.Services.AddDbContext<MercatoDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Application DbContext registration
 builder.Services.AddScoped<IApplicationDbContext>(provider =>
     provider.GetRequiredService<MercatoDbContext>());
 
-// Other services
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+
 builder.Services.AddScoped<IProductQueryService, ProductQueryService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, FakeEmailService>();
 
-// MinIO
 builder.Services.AddMinioStorage(builder.Configuration);
 builder.Services.AddScoped<IFileStorageService, S3MinioFileStorageService>();
 
-// Jwt options
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection("Jwt"));
 
-// Identity
 builder.Services
     .AddIdentity<AppUser, IdentityRole<Guid>>(options =>
     {
@@ -96,7 +90,6 @@ builder.Services
     .AddEntityFrameworkStores<MercatoDbContext>()
     .AddDefaultTokenProviders();
 
-// JWT Authentication
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var secretKey = jwtSection["SecretKey"]!;
 
@@ -122,21 +115,17 @@ builder.Services
         };
     });
 
-// Authorization
 builder.Services.AddAuthorization();
 
-// MediatR
 builder.Services.AddMediatR(typeof(CreateProductCommand).Assembly);
 
 var app = builder.Build();
 
-// Seed roles
 using (var scope = app.Services.CreateScope())
 {
     await IdentitySeeder.SeedRolesAsync(scope.ServiceProvider);
 }
 
-// Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
