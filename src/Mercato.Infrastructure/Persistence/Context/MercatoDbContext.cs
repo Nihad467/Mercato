@@ -18,6 +18,9 @@ public class MercatoDbContext
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,6 +87,71 @@ public class MercatoDbContext
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CartItem>(entity =>
+        {
+            entity.ToTable("CartItems");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.UserId)
+                .IsRequired();
+
+            entity.Property(x => x.Quantity)
+                .IsRequired();
+
+            entity.HasOne(x => x.Product)
+                .WithMany()
+                .HasForeignKey(x => x.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(x => new { x.UserId, x.ProductId })
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<Order>(entity =>
+        {
+            entity.ToTable("Orders");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.UserId)
+                .IsRequired();
+
+            entity.Property(x => x.TotalPrice)
+                .HasPrecision(18, 2);
+
+            entity.Property(x => x.Status)
+                .IsRequired();
+
+            entity.Property(x => x.CreatedAtUtc)
+                .IsRequired();
+
+            entity.HasMany(x => x.OrderItems)
+                .WithOne(x => x.Order)
+                .HasForeignKey(x => x.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<OrderItem>(entity =>
+        {
+            entity.ToTable("OrderItems");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.ProductName)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(x => x.UnitPrice)
+                .HasPrecision(18, 2);
+
+            entity.Property(x => x.TotalPrice)
+                .HasPrecision(18, 2);
+
+            entity.Property(x => x.Quantity)
+                .IsRequired();
         });
     }
 
@@ -163,9 +231,79 @@ public class MercatoDbContext
         ProductImages.RemoveRange(images);
     }
 
+    public async Task<List<CartItem>> GetUserCartItemsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return await CartItems
+            .Include(x => x.Product)
+            .ThenInclude(x => x.Images)
+            .Where(x => x.UserId == userId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<CartItem?> GetCartItemAsync(Guid userId, int productId, CancellationToken cancellationToken)
+    {
+        return await CartItems
+            .Include(x => x.Product)
+            .ThenInclude(x => x.Images)
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.ProductId == productId, cancellationToken);
+    }
+
+    public async Task<CartItem?> GetCartItemByIdAsync(int cartItemId, Guid userId, CancellationToken cancellationToken)
+    {
+        return await CartItems
+            .Include(x => x.Product)
+            .ThenInclude(x => x.Images)
+            .FirstOrDefaultAsync(x => x.Id == cartItemId && x.UserId == userId, cancellationToken);
+    }
+
+    public async Task AddCartItemAsync(CartItem cartItem, CancellationToken cancellationToken)
+    {
+        await CartItems.AddAsync(cartItem, cancellationToken);
+    }
+
+    public void RemoveCartItem(CartItem cartItem)
+    {
+        CartItems.Remove(cartItem);
+    }
+
+    public async Task AddOrderAsync(Order order, CancellationToken cancellationToken)
+    {
+        await Orders.AddAsync(order, cancellationToken);
+    }
+
+    public async Task<Order?> GetOrderByIdAsync(int orderId, CancellationToken cancellationToken)
+    {
+        return await Orders
+            .Include(x => x.OrderItems)
+            .FirstOrDefaultAsync(x => x.Id == orderId, cancellationToken);
+    }
+
+    public async Task<Order?> GetUserOrderByIdAsync(int orderId, Guid userId, CancellationToken cancellationToken)
+    {
+        return await Orders
+            .Include(x => x.OrderItems)
+            .FirstOrDefaultAsync(x => x.Id == orderId && x.UserId == userId, cancellationToken);
+    }
+
+    public async Task<List<Order>> GetUserOrdersAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return await Orders
+            .Include(x => x.OrderItems)
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<Order>> GetAllOrdersAsync(CancellationToken cancellationToken)
+    {
+        return await Orders
+            .Include(x => x.OrderItems)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return base.SaveChangesAsync(cancellationToken);
     }
-   
 }
