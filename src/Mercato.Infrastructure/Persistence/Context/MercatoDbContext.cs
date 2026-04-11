@@ -21,6 +21,7 @@ public class MercatoDbContext
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<Payment> Payments => Set<Payment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -132,6 +133,11 @@ public class MercatoDbContext
                 .WithOne(x => x.Order)
                 .HasForeignKey(x => x.OrderId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(x => x.Payments)
+                .WithOne(x => x.Order)
+                .HasForeignKey(x => x.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<OrderItem>(entity =>
@@ -152,6 +158,47 @@ public class MercatoDbContext
 
             entity.Property(x => x.Quantity)
                 .IsRequired();
+        });
+
+        modelBuilder.Entity<Payment>(entity =>
+        {
+            entity.ToTable("Payments");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Amount)
+                .HasPrecision(18, 2);
+
+            entity.Property(x => x.Currency)
+                .IsRequired()
+                .HasMaxLength(10);
+
+            entity.Property(x => x.Status)
+                .IsRequired();
+
+            entity.Property(x => x.Provider)
+                .IsRequired();
+
+            entity.Property(x => x.ExternalPaymentId)
+                .HasMaxLength(200);
+
+            entity.Property(x => x.CheckoutUrl)
+                .HasMaxLength(1000);
+
+            entity.Property(x => x.ClientSecret)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.FailureReason)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.CreatedAtUtc)
+                .IsRequired();
+
+            entity.HasIndex(x => x.OrderId);
+
+            entity.HasIndex(x => x.ExternalPaymentId)
+                .IsUnique()
+                .HasFilter("[ExternalPaymentId] IS NOT NULL");
         });
     }
 
@@ -275,6 +322,7 @@ public class MercatoDbContext
     {
         return await Orders
             .Include(x => x.OrderItems)
+            .Include(x => x.Payments)
             .FirstOrDefaultAsync(x => x.Id == orderId, cancellationToken);
     }
 
@@ -282,6 +330,7 @@ public class MercatoDbContext
     {
         return await Orders
             .Include(x => x.OrderItems)
+            .Include(x => x.Payments)
             .FirstOrDefaultAsync(x => x.Id == orderId && x.UserId == userId, cancellationToken);
     }
 
@@ -289,6 +338,7 @@ public class MercatoDbContext
     {
         return await Orders
             .Include(x => x.OrderItems)
+            .Include(x => x.Payments)
             .Where(x => x.UserId == userId)
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
@@ -298,8 +348,55 @@ public class MercatoDbContext
     {
         return await Orders
             .Include(x => x.OrderItems)
+            .Include(x => x.Payments)
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task AddPaymentAsync(Payment payment, CancellationToken cancellationToken)
+    {
+        await Payments.AddAsync(payment, cancellationToken);
+    }
+
+    public async Task<Payment?> GetPaymentByIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        return await Payments
+            .Include(x => x.Order)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
+    public async Task<Payment?> GetPaymentByOrderIdAsync(int orderId, CancellationToken cancellationToken)
+    {
+        return await Payments
+            .Include(x => x.Order)
+            .Where(x => x.OrderId == orderId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<List<Payment>> GetPaymentsByOrderIdAsync(int orderId, CancellationToken cancellationToken)
+    {
+        return await Payments
+            .Where(x => x.OrderId == orderId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<Payment?> GetPaymentByExternalPaymentIdAsync(string externalPaymentId, CancellationToken cancellationToken)
+    {
+        return await Payments
+            .Include(x => x.Order)
+            .FirstOrDefaultAsync(x => x.ExternalPaymentId == externalPaymentId, cancellationToken);
+    }
+
+    public void UpdateOrder(Order order)
+    {
+        Orders.Update(order);
+    }
+
+    public void UpdatePayment(Payment payment)
+    {
+        Payments.Update(payment);
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

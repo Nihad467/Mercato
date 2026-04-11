@@ -33,6 +33,13 @@ public interface IApplicationDbContext
     Task<Order?> GetUserOrderByIdAsync(int orderId, Guid userId, CancellationToken cancellationToken);
     Task<List<Order>> GetUserOrdersAsync(Guid userId, CancellationToken cancellationToken);
     Task<List<Order>> GetAllOrdersAsync(CancellationToken cancellationToken);
+    Task AddPaymentAsync(Payment payment, CancellationToken cancellationToken);
+    Task<Payment?> GetPaymentByIdAsync(Guid id, CancellationToken cancellationToken);
+    Task<Payment?> GetPaymentByOrderIdAsync(int orderId, CancellationToken cancellationToken);
+    Task<List<Payment>> GetPaymentsByOrderIdAsync(int orderId, CancellationToken cancellationToken);
+    Task<Payment?> GetPaymentByExternalPaymentIdAsync(string externalPaymentId, CancellationToken cancellationToken);
+    void UpdatePayment(Payment payment);
+    void UpdateOrder(Order order);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }
