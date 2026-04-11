@@ -14,6 +14,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Mercato.Application.Common.Interfaces;
+using Mercato.Infrastructure.Services.Payments;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,6 +72,8 @@ builder.Services.AddScoped<IEmailService, FakeEmailService>();
 
 builder.Services.AddMinioStorage(builder.Configuration);
 builder.Services.AddScoped<IFileStorageService, S3MinioFileStorageService>();
+builder.Services.AddScoped<IPaymentService, MockPaymentService>();
+builder.Services.AddScoped<IPaymentServiceFactory, PaymentServiceFactory>();
 
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection("Jwt"));
