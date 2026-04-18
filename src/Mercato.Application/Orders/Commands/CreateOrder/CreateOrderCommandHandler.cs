@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Mercato.Application.Common.Exceptions;
 using Mercato.Application.Common.Interfaces;
 using Mercato.Domain.Entities;
 using Mercato.Domain.Enums;
@@ -68,7 +69,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, int
 
         await _context.AddOrderAsync(order, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
-
+        throw new NotFoundException("Test exception.");
         return order.Id;
     }
 }

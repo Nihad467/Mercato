@@ -3,8 +3,11 @@ using Mercato.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Mercato.Infrastructure.Persistence.Context;
+
+using Mercato.Infrastructure.Persistence.Transactions;
 
 public class MercatoDbContext
     : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>, IApplicationDbContext
@@ -397,8 +400,14 @@ public class MercatoDbContext
     public void UpdatePayment(Payment payment)
     {
         Payments.Update(payment);
+
     }
 
+    public async Task<IAppTransaction> BeginTransactionAsync(CancellationToken cancellationToken)
+    {
+        var transaction = await Database.BeginTransactionAsync(cancellationToken);
+        return new EfAppTransaction(transaction);
+    }
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return base.SaveChangesAsync(cancellationToken);
