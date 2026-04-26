@@ -25,6 +25,16 @@ services:
     volumes:
       - seq-data:/data
 
+  redis:
+    image: redis:7.4
+    container_name: mercato-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: always
+
 volumes:
   minio-data:
   seq-data:
+  redis-data:

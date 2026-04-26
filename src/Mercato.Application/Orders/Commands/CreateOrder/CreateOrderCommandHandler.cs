@@ -69,7 +69,6 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, int
 
         await _context.AddOrderAsync(order, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
-        throw new NotFoundException("Test exception.");
         return order.Id;
     }
 }

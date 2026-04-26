@@ -19,6 +19,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
+using Mercato.Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,7 +92,7 @@ try
 
     builder.Services.Configure<JwtOptions>(
         builder.Configuration.GetSection("Jwt"));
-
+    builder.Services.AddRedisServices(builder.Configuration);
     builder.Services.Configure<StripeOptions>(
         builder.Configuration.GetSection(StripeOptions.SectionName));
 

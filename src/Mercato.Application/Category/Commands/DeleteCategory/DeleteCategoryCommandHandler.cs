@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Mercato.Application.Common.Caching;
 using Mercato.Application.Common.Interfaces;
 
 namespace Mercato.Application.Category.Commands.DeleteCategory;
@@ -6,15 +7,23 @@ namespace Mercato.Application.Category.Commands.DeleteCategory;
 public class DeleteCategoryCommandHandler : IRequestHandler<DeleteCategoryCommand, DeleteCategoryResult>
 {
     private readonly IApplicationDbContext _context;
+    private readonly ICacheService _cacheService;
 
-    public DeleteCategoryCommandHandler(IApplicationDbContext context)
+    public DeleteCategoryCommandHandler(
+        IApplicationDbContext context,
+        ICacheService cacheService)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _cacheService = cacheService;
     }
 
-    public async Task<DeleteCategoryResult> Handle(DeleteCategoryCommand request, CancellationToken cancellationToken)
+    public async Task<DeleteCategoryResult> Handle(
+        DeleteCategoryCommand request,
+        CancellationToken cancellationToken)
     {
-        var category = await _context.GetCategoryByIdAsync(request.Id, cancellationToken);
+        var category = await _context.GetCategoryByIdAsync(
+            request.Id,
+            cancellationToken);
 
         if (category is null)
         {
@@ -25,7 +34,9 @@ public class DeleteCategoryCommandHandler : IRequestHandler<DeleteCategoryComman
             };
         }
 
-        var hasProducts = await _context.CategoryHasProductsAsync(request.Id, cancellationToken);
+        var hasProducts = await _context.CategoryHasProductsAsync(
+            request.Id,
+            cancellationToken);
 
         if (hasProducts)
         {
@@ -38,6 +49,14 @@ public class DeleteCategoryCommandHandler : IRequestHandler<DeleteCategoryComman
 
         _context.RemoveCategory(category);
         await _context.SaveChangesAsync(cancellationToken);
+
+        await _cacheService.RemoveAsync(
+            CacheKeys.CategoriesList,
+            cancellationToken);
+
+        await _cacheService.RemoveAsync(
+            CacheKeys.CategoryById(request.Id),
+            cancellationToken);
 
         return new DeleteCategoryResult
         {

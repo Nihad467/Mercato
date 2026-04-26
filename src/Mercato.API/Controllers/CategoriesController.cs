@@ -70,13 +70,12 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    [AllowAnonymous]
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _mediator.Send(new GetCategoryByIdQuery(id));
 
         if (result is null)
-            return NotFound(new { message = "Category tapılmadı" });
+            return NotFound();
 
         return Ok(result);
     }
