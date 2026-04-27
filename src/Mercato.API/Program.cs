@@ -19,7 +19,6 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
-using Mercato.Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +34,7 @@ try
     builder.Services.AddControllers();
 
     builder.Services.AddEndpointsApiExplorer();
+
     builder.Services.AddSwaggerGen(options =>
     {
         options.SwaggerDoc("v1", new OpenApiInfo
@@ -79,22 +79,29 @@ try
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
     builder.Services.AddScoped<IProductQueryService, ProductQueryService>();
+
     builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
     builder.Services.AddScoped<IAuthService, AuthService>();
-    builder.Services.AddScoped<IEmailService, FakeEmailService>();
 
     builder.Services.AddMinioStorage(builder.Configuration);
     builder.Services.AddScoped<IFileStorageService, S3MinioFileStorageService>();
 
-    builder.Services.AddScoped<MockPaymentService>();
-    builder.Services.AddScoped<StripePaymentService>();
-    builder.Services.AddScoped<IPaymentServiceFactory, PaymentServiceFactory>();
+    builder.Services.AddRedisServices(builder.Configuration);
 
     builder.Services.Configure<JwtOptions>(
         builder.Configuration.GetSection("Jwt"));
-    builder.Services.AddRedisServices(builder.Configuration);
+
     builder.Services.Configure<StripeOptions>(
         builder.Configuration.GetSection(StripeOptions.SectionName));
+
+    builder.Services.Configure<EmailOptions>(
+        builder.Configuration.GetSection("Email"));
+
+    builder.Services.AddScoped<IEmailService, EmailService>();
+
+    builder.Services.AddScoped<MockPaymentService>();
+    builder.Services.AddScoped<StripePaymentService>();
+    builder.Services.AddScoped<IPaymentServiceFactory, PaymentServiceFactory>();
 
     builder.Services
         .AddIdentity<AppUser, IdentityRole<Guid>>(options =>
@@ -140,6 +147,7 @@ try
     builder.Services.AddAuthorization();
 
     builder.Services.AddMediatR(typeof(CreateProductCommand).Assembly);
+
     builder.Services.AddValidatorsFromAssembly(typeof(CreateProductCommand).Assembly);
 
     builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
