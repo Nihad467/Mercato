@@ -34,7 +34,17 @@ services:
       - redis-data:/data
     restart: always
 
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: mercato-redisinsight
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight-data:/data
+    restart: always
+
 volumes:
   minio-data:
   seq-data:
   redis-data:
+  redisinsight-data:

@@ -1,5 +1,7 @@
 ﻿using MediatR;
+using Mercato.Application.Common.Caching;
 using Mercato.Application.Common.Interfaces;
+using System.Net.Sockets;
 
 namespace Mercato.Application.Product.Commands.UpdateProduct;
 
@@ -7,25 +9,34 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
 {
     private readonly IApplicationDbContext _context;
     private readonly IFileStorageService _fileStorageService;
+    private readonly ICacheService _cacheService;
 
     public UpdateProductCommandHandler(
         IApplicationDbContext context,
-        IFileStorageService fileStorageService)
+        IFileStorageService fileStorageService,
+        ICacheService cacheService)
     {
         _context = context;
         _fileStorageService = fileStorageService;
+        _cacheService = cacheService;
     }
 
-    public async Task<int> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
+    public async Task<int> Handle(
+        UpdateProductCommand request,
+        CancellationToken cancellationToken)
     {
         var dto = request.Product;
 
-        var product = await _context.GetProductByIdAsync(dto.Id, cancellationToken);
+        var product = await _context.GetProductByIdAsync(
+            dto.Id,
+            cancellationToken);
 
         if (product is null)
             throw new Exception("Product tapılmadı.");
 
-        var categoryExists = await _context.CategoryExistsAsync(dto.CategoryId, cancellationToken);
+        var categoryExists = await _context.CategoryExistsAsync(
+            dto.CategoryId,
+            cancellationToken);
 
         if (!categoryExists)
             throw new Exception("Verilən CategoryId mövcud deyil.");
@@ -40,7 +51,9 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         {
             foreach (var oldImage in product.Images.ToList())
             {
-                await _fileStorageService.DeleteFileAsync(oldImage.ObjectKey, cancellationToken);
+                await _fileStorageService.DeleteFileAsync(
+                    oldImage.ObjectKey,
+                    cancellationToken);
             }
 
             _context.RemoveProductImages(product.Images.ToList());
@@ -69,6 +82,14 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        await _cacheService.RemoveByPrefixAsync(
+            CacheKeys.ProductsListPrefix,
+            cancellationToken);
+
+        await _cacheService.RemoveAsync(
+            CacheKeys.ProductById(product.Id),
+            cancellationToken);
 
         return product.Id;
     }

@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Mercato.Application.Common.Caching;
 using Mercato.Application.Common.Interfaces;
 using Mercato.Application.Product.Commands.CreateProduct;
 using Mercato.Domain.Entities;
@@ -9,20 +10,27 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
 {
     private readonly IApplicationDbContext _context;
     private readonly IFileStorageService _fileStorageService;
+    private readonly ICacheService _cacheService;
 
     public CreateProductCommandHandler(
         IApplicationDbContext context,
-        IFileStorageService fileStorageService)
+        IFileStorageService fileStorageService,
+        ICacheService cacheService)
     {
         _context = context;
         _fileStorageService = fileStorageService;
+        _cacheService = cacheService;
     }
 
-    public async Task<int> Handle(CreateProductCommand request, CancellationToken cancellationToken)
+    public async Task<int> Handle(
+        CreateProductCommand request,
+        CancellationToken cancellationToken)
     {
         var dto = request.Product;
 
-        var categoryExists = await _context.CategoryExistsAsync(dto.CategoryId, cancellationToken);
+        var categoryExists = await _context.CategoryExistsAsync(
+            dto.CategoryId,
+            cancellationToken);
 
         if (!categoryExists)
             throw new Exception("Verilən CategoryId mövcud deyil.");
@@ -61,6 +69,10 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
 
         await _context.AddProductAsync(product, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
+
+        await _cacheService.RemoveByPrefixAsync(
+            CacheKeys.ProductsListPrefix,
+            cancellationToken);
 
         return product.Id;
     }

@@ -11,7 +11,7 @@ public static class CacheKeys
         return $"categories:detail:{categoryId}";
     }
 
-    public static string ProductById(Guid productId)
+    public static string ProductById(int productId)
     {
         return $"products:detail:{productId}";
     }
