@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace Mercato.Infrastructure.Persistence.Context;
 
 using Mercato.Application.Admin.Dashboard.Dtos;
+using Mercato.Application.Ai.Models;
 using Mercato.Domain.Enums;
 using Mercato.Infrastructure.Persistence.Transactions;
 
@@ -585,6 +586,35 @@ public class MercatoDbContext
                 TotalRevenue = g.Sum(x => x.orderItem.TotalPrice)
             })
             .OrderByDescending(x => x.TotalRevenue)
+            .ToListAsync(cancellationToken);
+    }
+    public async Task<List<AiProductCandidateDto>> GetAiProductCandidatesAsync(
+    CancellationToken cancellationToken = default)
+    {
+        return await Products
+            .AsNoTracking()
+            .Join(
+                Categories.AsNoTracking(),
+                product => product.CategoryId,
+                category => category.Id,
+                (product, category) => new
+                {
+                    product,
+                    category
+                })
+            .Select(x => new AiProductCandidateDto
+            {
+                ProductId = x.product.Id,
+                Name = x.product.Name,
+                Description = x.product.Description,
+                Price = x.product.Price,
+                Stock = x.product.Stock,
+                CategoryName = x.category.Name,
+                MainImageObjectKey = ProductImages
+                    .Where(image => image.ProductId == x.product.Id && image.IsMain)
+                    .Select(image => image.ObjectKey)
+                    .FirstOrDefault()
+            })
             .ToListAsync(cancellationToken);
     }
 }

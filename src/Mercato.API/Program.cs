@@ -97,6 +97,12 @@ try
 
     builder.Services.Configure<EmailOptions>(
         builder.Configuration.GetSection("Email"));
+    builder.Services.Configure<OpenAiOptions>(
+    builder.Configuration.GetSection("OpenAI"));
+
+    builder.Services.AddHttpClient<IAiRequirementAnalyzer, OpenAiRequirementAnalyzer>();
+
+    builder.Services.AddScoped<IAiProductRecommendationService, AiProductRecommendationService>();
 
     builder.Services.AddScoped<IEmailService, EmailService>();
 

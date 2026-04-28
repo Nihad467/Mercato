@@ -1,4 +1,5 @@
 ﻿using Mercato.Application.Admin.Dashboard.Dtos;
+using Mercato.Application.Ai.Models;
 using Mercato.Domain.Entities;
 
 namespace Mercato.Application.Common.Interfaces;
@@ -71,5 +72,7 @@ public interface IApplicationDbContext
 
     Task<List<CategoryStatsDto>> GetCategoryStatsAsync(
         CancellationToken cancellationToken = default);
+    Task<List<AiProductCandidateDto>> GetAiProductCandidatesAsync(
+    CancellationToken cancellationToken = default);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }
