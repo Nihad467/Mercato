@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Mercato.Infrastructure.Persistence.Context;
 
+using Mercato.Application.Admin.Dashboard.Dtos;
+using Mercato.Domain.Enums;
 using Mercato.Infrastructure.Persistence.Transactions;
 
 public class MercatoDbContext
@@ -411,5 +413,178 @@ public class MercatoDbContext
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return base.SaveChangesAsync(cancellationToken);
+    }
+    public async Task<int> GetTotalOrdersCountAsync(CancellationToken cancellationToken = default)
+    {
+        return await Orders.CountAsync(cancellationToken);
+    }
+
+    public async Task<decimal> GetTotalRevenueAsync(CancellationToken cancellationToken = default)
+    {
+        return await Orders.SumAsync(x => x.TotalPrice, cancellationToken);
+    }
+
+    public async Task<int> GetTotalProductsCountAsync(CancellationToken cancellationToken = default)
+    {
+        return await Products.CountAsync(cancellationToken);
+    }
+
+    public async Task<int> GetTotalUsersCountAsync(CancellationToken cancellationToken = default)
+    {
+        return await Users.CountAsync(cancellationToken);
+    }
+
+    public async Task<int> GetLowStockProductsCountAsync(
+        int threshold,
+        CancellationToken cancellationToken = default)
+    {
+        return await Products
+            .CountAsync(x => x.Stock <= threshold, cancellationToken);
+    }
+
+    public async Task<int> GetPendingOrdersCountAsync(CancellationToken cancellationToken = default)
+    {
+        return await Orders
+            .CountAsync(x => x.Status == OrderStatus.Pending, cancellationToken);
+
+
+    }
+    public async Task<List<TopProductDto>> GetTopProductsAsync(
+    int take,
+    CancellationToken cancellationToken = default)
+    {
+        return await OrderItems
+            .AsNoTracking()
+            .GroupBy(x => new
+            {
+                x.ProductId,
+                x.ProductName
+            })
+            .Select(g => new TopProductDto
+            {
+                ProductId = g.Key.ProductId,
+                ProductName = g.Key.ProductName,
+                TotalSold = g.Sum(x => x.Quantity),
+                TotalRevenue = g.Sum(x => x.TotalPrice)
+            })
+            .OrderByDescending(x => x.TotalSold)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+    }
+    public async Task<List<LowStockProductDto>> GetLowStockProductsAsync(
+    int threshold,
+    CancellationToken cancellationToken = default)
+    {
+        return await Products
+            .AsNoTracking()
+            .Where(x => x.Stock <= threshold)
+            .OrderBy(x => x.Stock)
+            .Select(x => new LowStockProductDto
+            {
+                ProductId = x.Id,
+                ProductName = x.Name,
+                Stock = x.Stock,
+                Price = x.Price
+            })
+            .ToListAsync(cancellationToken);
+
+    }
+    public async Task<List<RecentOrderDto>> GetRecentOrdersAsync(
+    int take,
+    CancellationToken cancellationToken = default)
+    {
+        return await Orders
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Take(take)
+            .Select(x => new RecentOrderDto
+            {
+                OrderId = x.Id,
+                UserId = x.UserId,
+                TotalPrice = x.TotalPrice,
+                Status = x.Status.ToString(),
+                CreatedAtUtc = x.CreatedAtUtc
+            })
+            .ToListAsync(cancellationToken);
+    }
+    public async Task<RevenueSummaryDto> GetRevenueSummaryAsync(
+    CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+
+        var todayStart = now.Date;
+        var weekStart = now.Date.AddDays(-7);
+        var monthStart = new DateTime(now.Year, now.Month, 1);
+
+        var todayRevenue = await Orders
+            .AsNoTracking()
+            .Where(x => x.CreatedAtUtc >= todayStart)
+            .Select(x => (decimal?)x.TotalPrice)
+            .SumAsync(cancellationToken) ?? 0;
+
+        var weeklyRevenue = await Orders
+            .AsNoTracking()
+            .Where(x => x.CreatedAtUtc >= weekStart)
+            .Select(x => (decimal?)x.TotalPrice)
+            .SumAsync(cancellationToken) ?? 0;
+
+        var monthlyRevenue = await Orders
+            .AsNoTracking()
+            .Where(x => x.CreatedAtUtc >= monthStart)
+            .Select(x => (decimal?)x.TotalPrice)
+            .SumAsync(cancellationToken) ?? 0;
+
+        var totalRevenue = await Orders
+            .AsNoTracking()
+            .Select(x => (decimal?)x.TotalPrice)
+            .SumAsync(cancellationToken) ?? 0;
+
+        return new RevenueSummaryDto
+        {
+            TodayRevenue = todayRevenue,
+            WeeklyRevenue = weeklyRevenue,
+            MonthlyRevenue = monthlyRevenue,
+            TotalRevenue = totalRevenue
+        };
+    }
+
+    public async Task<List<CategoryStatsDto>> GetCategoryStatsAsync(
+       CancellationToken cancellationToken = default)
+    {
+        return await OrderItems
+            .AsNoTracking()
+            .Join(
+                Products.AsNoTracking(),
+                orderItem => orderItem.ProductId,
+                product => product.Id,
+                (orderItem, product) => new
+                {
+                    orderItem,
+                    product
+                })
+            .Join(
+                Categories.AsNoTracking(),
+                x => x.product.CategoryId,
+                category => category.Id,
+                (x, category) => new
+                {
+                    x.orderItem,
+                    x.product,
+                    category
+                })
+            .GroupBy(x => new
+            {
+                CategoryId = x.category.Id,
+                CategoryName = x.category.Name
+            })
+            .Select(g => new CategoryStatsDto
+            {
+                CategoryId = g.Key.CategoryId,
+                CategoryName = g.Key.CategoryName,
+                TotalProductsSold = g.Sum(x => x.orderItem.Quantity),
+                TotalRevenue = g.Sum(x => x.orderItem.TotalPrice)
+            })
+            .OrderByDescending(x => x.TotalRevenue)
+            .ToListAsync(cancellationToken);
     }
 }

@@ -1,4 +1,5 @@
-﻿using Mercato.Domain.Entities;
+﻿using Mercato.Application.Admin.Dashboard.Dtos;
+using Mercato.Domain.Entities;
 
 namespace Mercato.Application.Common.Interfaces;
 
@@ -43,6 +44,32 @@ public interface IApplicationDbContext
     void UpdatePayment(Payment payment);
     Task<IAppTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
     void UpdateOrder(Order order);
+    Task<int> GetTotalOrdersCountAsync(CancellationToken cancellationToken = default);
 
+    Task<decimal> GetTotalRevenueAsync(CancellationToken cancellationToken = default);
+
+    Task<int> GetTotalProductsCountAsync(CancellationToken cancellationToken = default);
+
+    Task<int> GetTotalUsersCountAsync(CancellationToken cancellationToken = default);
+
+    Task<int> GetLowStockProductsCountAsync(
+        int threshold,
+        CancellationToken cancellationToken = default);
+
+    Task<List<TopProductDto>> GetTopProductsAsync(
+    int take,
+    CancellationToken cancellationToken = default);
+    Task<int> GetPendingOrdersCountAsync(CancellationToken cancellationToken = default);
+    Task<List<LowStockProductDto>> GetLowStockProductsAsync(
+    int threshold,
+    CancellationToken cancellationToken = default);
+    Task<List<RecentOrderDto>> GetRecentOrdersAsync(
+    int take,
+    CancellationToken cancellationToken = default);
+    Task<RevenueSummaryDto> GetRevenueSummaryAsync(
+    CancellationToken cancellationToken = default);
+
+    Task<List<CategoryStatsDto>> GetCategoryStatsAsync(
+        CancellationToken cancellationToken = default);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

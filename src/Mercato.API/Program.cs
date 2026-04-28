@@ -90,6 +90,7 @@ try
 
     builder.Services.Configure<JwtOptions>(
         builder.Configuration.GetSection("Jwt"));
+    builder.Services.AddScoped<IAdminDashboardService, AdminDashboardService>();
 
     builder.Services.Configure<StripeOptions>(
         builder.Configuration.GetSection(StripeOptions.SectionName));
