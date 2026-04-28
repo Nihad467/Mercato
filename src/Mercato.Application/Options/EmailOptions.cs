@@ -8,4 +8,8 @@ public class EmailOptions
     public string Password { get; set; } = string.Empty;
     public string FromEmail { get; set; } = string.Empty;
     public string FromName { get; set; } = string.Empty;
+    public string PasswordResetBaseUrl { get; set; } = string.Empty;
+    public string ConfirmationBaseUrl { get; set; } = string.Empty;
+    public string AdminEmail { get; set; } = string.Empty;
+    public int LowStockThreshold { get; set; } = 5;
 }
