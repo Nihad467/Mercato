@@ -2,4 +2,7 @@
 
 namespace Mercato.Application.Orders.Commands.CreateOrder;
 
-public record CreateOrderCommand : IRequest<int>;
+public class CreateOrderCommand : IRequest<CreateOrderResult>
+{
+    public string? CouponCode { get; set; }
+}

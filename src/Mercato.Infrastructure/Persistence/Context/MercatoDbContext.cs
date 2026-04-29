@@ -1,16 +1,14 @@
-﻿using Mercato.Application.Common.Interfaces;
+﻿using Mercato.Application.Admin.Dashboard.Dtos;
+using Mercato.Application.Ai.Models;
+using Mercato.Application.Common.Interfaces;
 using Mercato.Domain.Entities;
+using Mercato.Domain.Enums;
+using Mercato.Infrastructure.Persistence.Transactions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Mercato.Infrastructure.Persistence.Context;
-
-using Mercato.Application.Admin.Dashboard.Dtos;
-using Mercato.Application.Ai.Models;
-using Mercato.Domain.Enums;
-using Mercato.Infrastructure.Persistence.Transactions;
 
 public class MercatoDbContext
     : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>, IApplicationDbContext
@@ -28,7 +26,9 @@ public class MercatoDbContext
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Payment> Payments => Set<Payment>();
-
+    public DbSet<Coupon> Coupons => Set<Coupon>();
+    public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
+    public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -95,6 +95,90 @@ public class MercatoDbContext
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+        modelBuilder.Entity<ProductReview>(entity =>
+        {
+            entity.ToTable("ProductReviews");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.UserId)
+                .IsRequired();
+
+            entity.Property(x => x.ProductId)
+                .IsRequired();
+
+            entity.Property(x => x.Rating)
+                .IsRequired();
+
+            entity.Property(x => x.Comment)
+                .HasMaxLength(1000);
+
+            entity.Property(x => x.CreatedAtUtc)
+                .IsRequired();
+
+            entity.HasOne(x => x.Product)
+                .WithMany()
+                .HasForeignKey(x => x.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(x => new { x.UserId, x.ProductId })
+                .IsUnique();
+        });
+        modelBuilder.Entity<WishlistItem>(entity =>
+        {
+            entity.ToTable("WishlistItems");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.UserId)
+                .IsRequired();
+
+            entity.Property(x => x.ProductId)
+                .IsRequired();
+
+            entity.Property(x => x.CreatedAtUtc)
+                .IsRequired();
+
+            entity.HasOne(x => x.Product)
+                .WithMany()
+                .HasForeignKey(x => x.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(x => new { x.UserId, x.ProductId })
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<Coupon>(entity =>
+        {
+            entity.ToTable("Coupons");
+
+            entity.HasKey(c => c.Id);
+
+            entity.Property(c => c.Code)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.HasIndex(c => c.Code)
+                .IsUnique();
+
+            entity.Property(c => c.DiscountValue)
+                .HasPrecision(18, 2);
+
+            entity.Property(c => c.ExpireDate)
+                .IsRequired();
+
+            entity.Property(c => c.UsageLimit)
+                .IsRequired();
+
+            entity.Property(c => c.UsedCount)
+                .IsRequired();
+
+            entity.Property(c => c.IsActive)
+                .IsRequired();
+
+            entity.Property(c => c.CreatedAt)
+                .IsRequired();
+        });
 
         modelBuilder.Entity<CartItem>(entity =>
         {
@@ -126,8 +210,17 @@ public class MercatoDbContext
             entity.Property(x => x.UserId)
                 .IsRequired();
 
+            entity.Property(x => x.SubTotalPrice)
+                .HasPrecision(18, 2);
+
+            entity.Property(x => x.DiscountAmount)
+                .HasPrecision(18, 2);
+
             entity.Property(x => x.TotalPrice)
                 .HasPrecision(18, 2);
+
+            entity.Property(x => x.CouponCode)
+                .HasMaxLength(50);
 
             entity.Property(x => x.Status)
                 .IsRequired();
@@ -403,7 +496,6 @@ public class MercatoDbContext
     public void UpdatePayment(Payment payment)
     {
         Payments.Update(payment);
-
     }
 
     public async Task<IAppTransaction> BeginTransactionAsync(CancellationToken cancellationToken)
@@ -411,10 +503,12 @@ public class MercatoDbContext
         var transaction = await Database.BeginTransactionAsync(cancellationToken);
         return new EfAppTransaction(transaction);
     }
+
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return base.SaveChangesAsync(cancellationToken);
     }
+
     public async Task<int> GetTotalOrdersCountAsync(CancellationToken cancellationToken = default)
     {
         return await Orders.CountAsync(cancellationToken);
@@ -447,12 +541,11 @@ public class MercatoDbContext
     {
         return await Orders
             .CountAsync(x => x.Status == OrderStatus.Pending, cancellationToken);
-
-
     }
+
     public async Task<List<TopProductDto>> GetTopProductsAsync(
-    int take,
-    CancellationToken cancellationToken = default)
+        int take,
+        CancellationToken cancellationToken = default)
     {
         return await OrderItems
             .AsNoTracking()
@@ -472,9 +565,10 @@ public class MercatoDbContext
             .Take(take)
             .ToListAsync(cancellationToken);
     }
+
     public async Task<List<LowStockProductDto>> GetLowStockProductsAsync(
-    int threshold,
-    CancellationToken cancellationToken = default)
+        int threshold,
+        CancellationToken cancellationToken = default)
     {
         return await Products
             .AsNoTracking()
@@ -488,11 +582,11 @@ public class MercatoDbContext
                 Price = x.Price
             })
             .ToListAsync(cancellationToken);
-
     }
+
     public async Task<List<RecentOrderDto>> GetRecentOrdersAsync(
-    int take,
-    CancellationToken cancellationToken = default)
+        int take,
+        CancellationToken cancellationToken = default)
     {
         return await Orders
             .AsNoTracking()
@@ -508,8 +602,9 @@ public class MercatoDbContext
             })
             .ToListAsync(cancellationToken);
     }
+
     public async Task<RevenueSummaryDto> GetRevenueSummaryAsync(
-    CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
 
@@ -550,7 +645,7 @@ public class MercatoDbContext
     }
 
     public async Task<List<CategoryStatsDto>> GetCategoryStatsAsync(
-       CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         return await OrderItems
             .AsNoTracking()
@@ -588,8 +683,9 @@ public class MercatoDbContext
             .OrderByDescending(x => x.TotalRevenue)
             .ToListAsync(cancellationToken);
     }
+
     public async Task<List<AiProductCandidateDto>> GetAiProductCandidatesAsync(
-    CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         return await Products
             .AsNoTracking()
@@ -616,5 +712,124 @@ public class MercatoDbContext
                     .FirstOrDefault()
             })
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task AddCouponAsync(Coupon coupon, CancellationToken cancellationToken)
+    {
+        await Coupons.AddAsync(coupon, cancellationToken);
+    }
+
+    public async Task<Coupon?> GetCouponByIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        return await Coupons
+            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+    }
+
+    public async Task<Coupon?> GetCouponByCodeAsync(string code, CancellationToken cancellationToken)
+    {
+        return await Coupons
+            .FirstOrDefaultAsync(c => c.Code.ToLower() == code.ToLower(), cancellationToken);
+    }
+
+    public async Task<List<Coupon>> GetAllCouponsAsync(CancellationToken cancellationToken)
+    {
+        return await Coupons
+            .AsNoTracking()
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    public void RemoveCoupon(Coupon coupon)
+    {
+        Coupons.Remove(coupon);
+    }
+
+    public async Task<bool> CouponCodeExistsAsync(string code, CancellationToken cancellationToken)
+    {
+        return await Coupons
+            .AnyAsync(c => c.Code.ToLower() == code.ToLower(), cancellationToken);
+    }
+    public async Task AddWishlistItemAsync(WishlistItem wishlistItem, CancellationToken cancellationToken)
+    {
+        await WishlistItems.AddAsync(wishlistItem, cancellationToken);
+    }
+
+    public async Task<WishlistItem?> GetWishlistItemAsync(
+        Guid userId,
+        int productId,
+        CancellationToken cancellationToken)
+    {
+        return await WishlistItems
+            .Include(x => x.Product)
+            .ThenInclude(x => x.Images)
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.ProductId == productId, cancellationToken);
+    }
+
+    public async Task<List<WishlistItem>> GetUserWishlistItemsAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        return await WishlistItems
+            .AsNoTracking()
+            .Include(x => x.Product)
+            .ThenInclude(x => x.Images)
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    public void RemoveWishlistItem(WishlistItem wishlistItem)
+    {
+        WishlistItems.Remove(wishlistItem);
+    }
+    public async Task AddProductReviewAsync(ProductReview review, CancellationToken cancellationToken)
+    {
+        await ProductReviews.AddAsync(review, cancellationToken);
+    }
+
+    public async Task<ProductReview?> GetUserProductReviewAsync(
+        Guid userId,
+        int productId,
+        CancellationToken cancellationToken)
+    {
+        return await ProductReviews
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.ProductId == productId, cancellationToken);
+    }
+
+    public async Task<ProductReview?> GetProductReviewByIdAsync(
+        int reviewId,
+        CancellationToken cancellationToken)
+    {
+        return await ProductReviews
+            .Include(x => x.Product)
+            .FirstOrDefaultAsync(x => x.Id == reviewId, cancellationToken);
+    }
+
+    public async Task<List<ProductReview>> GetProductReviewsAsync(
+        int productId,
+        CancellationToken cancellationToken)
+    {
+        return await ProductReviews
+            .AsNoTracking()
+            .Where(x => x.ProductId == productId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> UserHasPurchasedProductAsync(
+        Guid userId,
+        int productId,
+        CancellationToken cancellationToken)
+    {
+        return await Orders
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .SelectMany(x => x.OrderItems)
+            .AnyAsync(x => x.ProductId == productId, cancellationToken);
+    }
+
+    public void RemoveProductReview(ProductReview review)
+    {
+        ProductReviews.Remove(review);
     }
 }

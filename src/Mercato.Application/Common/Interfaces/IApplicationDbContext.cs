@@ -74,5 +74,44 @@ public interface IApplicationDbContext
         CancellationToken cancellationToken = default);
     Task<List<AiProductCandidateDto>> GetAiProductCandidatesAsync(
     CancellationToken cancellationToken = default);
+    Task AddCouponAsync(Coupon coupon, CancellationToken cancellationToken);
+    Task<Coupon?> GetCouponByIdAsync(Guid id, CancellationToken cancellationToken);
+    Task<Coupon?> GetCouponByCodeAsync(string code, CancellationToken cancellationToken);
+    Task<List<Coupon>> GetAllCouponsAsync(CancellationToken cancellationToken);
+    void RemoveCoupon(Coupon coupon);
+    Task<bool> CouponCodeExistsAsync(string code, CancellationToken cancellationToken);
+    Task AddWishlistItemAsync(WishlistItem wishlistItem, CancellationToken cancellationToken);
+
+    Task<WishlistItem?> GetWishlistItemAsync(
+        Guid userId,
+        int productId,
+        CancellationToken cancellationToken);
+
+    Task<List<WishlistItem>> GetUserWishlistItemsAsync(
+        Guid userId,
+        CancellationToken cancellationToken);
+
+    void RemoveWishlistItem(WishlistItem wishlistItem);
+    Task AddProductReviewAsync(ProductReview review, CancellationToken cancellationToken);
+
+    Task<ProductReview?> GetUserProductReviewAsync(
+        Guid userId,
+        int productId,
+        CancellationToken cancellationToken);
+
+    Task<ProductReview?> GetProductReviewByIdAsync(
+        int reviewId,
+        CancellationToken cancellationToken);
+
+    Task<List<ProductReview>> GetProductReviewsAsync(
+        int productId,
+        CancellationToken cancellationToken);
+
+    Task<bool> UserHasPurchasedProductAsync(
+        Guid userId,
+        int productId,
+        CancellationToken cancellationToken);
+
+    void RemoveProductReview(ProductReview review);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

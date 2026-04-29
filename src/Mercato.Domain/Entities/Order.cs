@@ -16,4 +16,9 @@ public class Order
 
     public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
+    public string? CouponCode { get; set; }
+
+    public decimal DiscountAmount { get; set; }
+
+    public decimal SubTotalPrice { get; set; }
 }

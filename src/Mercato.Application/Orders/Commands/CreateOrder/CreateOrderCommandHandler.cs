@@ -9,7 +9,7 @@ using System.Text;
 
 namespace Mercato.Application.Orders.Commands.CreateOrder;
 
-public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, int>
+public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, CreateOrderResult>
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
@@ -31,7 +31,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, int
         _emailOptions = emailOptions.Value;
     }
 
-    public async Task<int> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
+    public async Task<CreateOrderResult> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
     {
         var userId = _currentUserService.UserId
             ?? throw new UnauthorizedAccessException("User is not authenticated.");
@@ -50,12 +50,57 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, int
                 throw new Exception($"Not enough stock for product: {cartItem.Product.Name}");
         }
 
+        var subTotalPrice = cartItems.Sum(x => x.Product!.Price * x.Quantity);
+
+        decimal discountAmount = 0;
+        string? appliedCouponCode = null;
+
+        if (!string.IsNullOrWhiteSpace(request.CouponCode))
+        {
+            var couponCode = request.CouponCode.Trim().ToUpper();
+
+            var coupon = await _context.GetCouponByCodeAsync(couponCode, cancellationToken);
+
+            if (coupon is null)
+                throw new Exception("Coupon not found.");
+
+            if (!coupon.IsActive)
+                throw new Exception("Coupon is not active.");
+
+            if (coupon.ExpireDate <= DateTime.UtcNow)
+                throw new Exception("Coupon has expired.");
+
+            if (coupon.UsedCount >= coupon.UsageLimit)
+                throw new Exception("Coupon usage limit has been reached.");
+
+            if (coupon.DiscountType == DiscountType.Percentage)
+            {
+                discountAmount = subTotalPrice * coupon.DiscountValue / 100;
+            }
+            else if (coupon.DiscountType == DiscountType.FixedAmount)
+            {
+                discountAmount = coupon.DiscountValue;
+            }
+
+            if (discountAmount > subTotalPrice)
+                discountAmount = subTotalPrice;
+
+            coupon.UsedCount += 1;
+            appliedCouponCode = coupon.Code;
+        }
+
+        var totalPrice = subTotalPrice - discountAmount;
+
         var lowStockProducts = new List<Mercato.Domain.Entities.Product>();
 
         var order = new Order
         {
             UserId = userId,
             Status = OrderStatus.Pending,
+            SubTotalPrice = subTotalPrice,
+            DiscountAmount = discountAmount,
+            TotalPrice = totalPrice,
+            CouponCode = appliedCouponCode,
             CreatedAtUtc = DateTime.UtcNow
         };
 
@@ -64,7 +109,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, int
             var product = cartItem.Product!;
 
             var unitPrice = product.Price;
-            var totalPrice = unitPrice * cartItem.Quantity;
+            var itemTotalPrice = unitPrice * cartItem.Quantity;
 
             var orderItem = new OrderItem
             {
@@ -72,7 +117,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, int
                 ProductName = product.Name,
                 UnitPrice = unitPrice,
                 Quantity = cartItem.Quantity,
-                TotalPrice = totalPrice
+                TotalPrice = itemTotalPrice
             };
 
             order.OrderItems.Add(orderItem);
@@ -87,10 +132,7 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, int
             _context.RemoveCartItem(cartItem);
         }
 
-        order.TotalPrice = order.OrderItems.Sum(x => x.TotalPrice);
-
         await _context.AddOrderAsync(order, cancellationToken);
-
         await _context.SaveChangesAsync(cancellationToken);
 
         var user = await _userManager.FindByIdAsync(userId.ToString());
@@ -118,7 +160,15 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, int
                 cancellationToken);
         }
 
-        return order.Id;
+        return new CreateOrderResult
+        {
+            OrderId = order.Id,
+            SubTotalPrice = order.SubTotalPrice,
+            DiscountAmount = order.DiscountAmount,
+            TotalPrice = order.TotalPrice,
+            CouponCode = order.CouponCode,
+            CreatedAtUtc = order.CreatedAtUtc
+        };
     }
 
     private static string BuildOrderPlacedEmailBody(Order order)
@@ -144,6 +194,16 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, int
                     </td>
                 </tr>");
         }
+
+        var discountRow = order.DiscountAmount > 0
+            ? $@"
+                        <tr>
+                            <td style='font-size: 14px; color: #d1d5db;'>Discount ({order.CouponCode})</td>
+                            <td style='font-size: 16px; font-weight: 700; text-align: right; color: #bbf7d0;'>
+                                -{order.DiscountAmount:0.00} $
+                            </td>
+                        </tr>"
+            : string.Empty;
 
         return $@"
 <!DOCTYPE html>
@@ -224,8 +284,15 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, int
                 <div style='margin-top: 22px; padding: 18px 20px; background-color: #111827; border-radius: 14px; color: #ffffff;'>
                     <table style='width: 100%; border-collapse: collapse;'>
                         <tr>
-                            <td style='font-size: 16px; font-weight: 600;'>Total price</td>
-                            <td style='font-size: 22px; font-weight: 800; text-align: right;'>
+                            <td style='font-size: 14px; color: #d1d5db;'>Subtotal</td>
+                            <td style='font-size: 16px; font-weight: 700; text-align: right;'>
+                                {order.SubTotalPrice:0.00} $
+                            </td>
+                        </tr>
+                        {discountRow}
+                        <tr>
+                            <td style='font-size: 16px; font-weight: 600; padding-top: 10px;'>Total price</td>
+                            <td style='font-size: 22px; font-weight: 800; text-align: right; padding-top: 10px;'>
                                 {order.TotalPrice:0.00} $
                             </td>
                         </tr>

@@ -19,11 +19,14 @@ public class OrdersController : ControllerBase
         _mediator = mediator;
     }
 
+    [Authorize]
     [HttpPost]
-    public async Task<IActionResult> CreateOrder()
+    public async Task<IActionResult> CreateOrder(
+     [FromBody] CreateOrderCommand command,
+     CancellationToken cancellationToken)
     {
-        var id = await _mediator.Send(new CreateOrderCommand());
-        return Ok(id);
+        var result = await _mediator.Send(command, cancellationToken);
+        return Ok(result);
     }
 
     [HttpGet]
