@@ -60,4 +60,29 @@ public class S3MinioFileStorageService : IFileStorageService
                 .WithObject(objectKey),
             cancellationToken);
     }
+
+    public async Task<Stream> OpenReadAsync(
+        string objectKey,
+        CancellationToken cancellationToken = default)
+    {
+        var output = new MemoryStream();
+
+        try
+        {
+            await _minioClient.GetObjectAsync(
+                new GetObjectArgs()
+                    .WithBucket(_options.BucketName)
+                    .WithObject(objectKey)
+                    .WithCallbackStream((source, token) => source.CopyToAsync(output, token)),
+                cancellationToken);
+
+            output.Position = 0;
+            return output;
+        }
+        catch
+        {
+            await output.DisposeAsync();
+            throw;
+        }
+    }
 }

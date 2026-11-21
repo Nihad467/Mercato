@@ -1,5 +1,6 @@
 ﻿using MediatR;
 using Mercato.Application.Common.Models.Pagination;
+using Mercato.Application.Common.Interfaces;
 using Mercato.Application.Product.Commands.CreateProduct;
 using Mercato.Application.Product.Commands.UpdateProduct;
 using Mercato.Application.Product.DTOs;
@@ -9,6 +10,8 @@ using Mercato.Application.Products.Commands.DeleteProduct;
 using Mercato.Application.Products.Queries.GetAllProducts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
+using Minio.Exceptions;
 
 namespace Mercato.API.Controllers;
 
@@ -17,10 +20,17 @@ namespace Mercato.API.Controllers;
 public class ProductsController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IApplicationDbContext _context;
+    private readonly IFileStorageService _fileStorage;
 
-    public ProductsController(IMediator mediator)
+    public ProductsController(
+        IMediator mediator,
+        IApplicationDbContext context,
+        IFileStorageService fileStorage)
     {
         _mediator = mediator;
+        _context = context;
+        _fileStorage = fileStorage;
     }
 
     [HttpPost]
@@ -80,5 +90,40 @@ public class ProductsController : ControllerBase
             return NotFound(new { message = "Product tapılmadı" });
 
         return Ok(result);
+    }
+
+    [HttpGet("{id}/image")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetMainImage(int id, CancellationToken cancellationToken)
+    {
+        var product = await _context.GetProductByIdAsync(id, cancellationToken);
+
+        if (product is null)
+            return NotFound(new { message = "Product tapılmadı" });
+
+        var image = product.Images
+            .OrderByDescending(item => item.IsMain)
+            .ThenBy(item => item.Order)
+            .FirstOrDefault();
+
+        if (image is null)
+            return NotFound(new { message = "Product image tapılmadı" });
+
+        Stream stream;
+        try
+        {
+            stream = await _fileStorage.OpenReadAsync(image.ObjectKey, cancellationToken);
+        }
+        catch (ObjectNotFoundException)
+        {
+            return NotFound(new { message = "Product image faylı MinIO-da tapılmadı" });
+        }
+
+        var contentTypeProvider = new FileExtensionContentTypeProvider();
+
+        if (!contentTypeProvider.TryGetContentType(image.ObjectKey, out var contentType))
+            contentType = "application/octet-stream";
+
+        return File(stream, contentType);
     }
 }

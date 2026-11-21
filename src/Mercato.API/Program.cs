@@ -195,10 +195,14 @@ try
 
     app.UseHttpsRedirection();
 
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+
     app.UseAuthentication();
     app.UseAuthorization();
 
     app.MapControllers();
+    app.MapFallbackToFile("index.html");
 
     app.Run();
 }

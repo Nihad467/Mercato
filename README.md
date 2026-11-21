@@ -38,6 +38,10 @@ Layihə **Clean Architecture** prinsiplərinə uyğun olaraq aşağıdakı qatla
 * **Infrastructure:** Redis, MinIO, Verilənlər bazası konfiqurasiyaları və Xarici xidmətlər (Identity, Payment, SMS).
 * **API:** Controller-lər, Middleware-lər və endpoint sazlamaları.
 
+## Frontend
+
+Layihəyə Mercato API-yə qoşulan, Azərbaycan dilində hazırlanmış React mağazası və admin paneli əlavə edilib. Məhsul axtarışı, hesab, səbət, seçilmişlər, sifarişlər, rəylər, AI tövsiyələri, məhsul və kateqoriya idarəetməsi, kuponlar və sifariş statusları daxildir. İşə salma təlimatı üçün [`frontend/README.md`](frontend/README.md) faylına baxın.
+
 ---
 
 ## ⚙️ Qurulum və İşə Salma (Setup)

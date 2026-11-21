@@ -34,6 +34,14 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("refresh")]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+    {
+        var result = await _authService.RefreshTokenAsync(request.RefreshToken);
+
+        return Ok(result);
+    }
+
     [HttpGet("confirm-email")]
     public async Task<IActionResult> ConfirmEmail(
         [FromQuery] Guid userId,
