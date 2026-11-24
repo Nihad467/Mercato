@@ -288,6 +288,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .review-card p { margin: 7px 0 0; color: #79847c; font-size: 10px; line-height: 1.65; }
 .review-form, .review-login { align-self: start; display: flex; flex-direction: column; gap: 9px; padding: 17px; border: 1px solid var(--line); border-radius: 4px; background: #fcfbf8; }
 .review-form > b, .review-login > b { color: #3d4e43; font-family: 'Manrope', sans-serif; font-size: 12px; }
+.review-note { color: #859087; font-size: 10px; line-height: 1.5; }
 .review-form label { margin-top: 5px; color: #7b877e; font-size: 9px; font-weight: 600; }
 .rating-picker { display: flex; gap: 1px; }
 .rating-picker button { padding: 2px; border: 0; color: #d09b4a; background: transparent; cursor: pointer; }

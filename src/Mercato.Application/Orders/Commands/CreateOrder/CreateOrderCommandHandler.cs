@@ -4,6 +4,7 @@ using Mercato.Application.Options;
 using Mercato.Domain.Entities;
 using Mercato.Domain.Enums;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text;
 
@@ -16,19 +17,22 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
     private readonly IEmailService _emailService;
     private readonly UserManager<AppUser> _userManager;
     private readonly EmailOptions _emailOptions;
+    private readonly ILogger<CreateOrderCommandHandler> _logger;
 
     public CreateOrderCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
         IEmailService emailService,
         UserManager<AppUser> userManager,
-        IOptions<EmailOptions> emailOptions)
+        IOptions<EmailOptions> emailOptions,
+        ILogger<CreateOrderCommandHandler> logger)
     {
         _context = context;
         _currentUserService = currentUserService;
         _emailService = emailService;
         _userManager = userManager;
         _emailOptions = emailOptions.Value;
+        _logger = logger;
     }
 
     public async Task<CreateOrderResult> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
@@ -141,7 +145,9 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
         {
             var emailBody = BuildOrderPlacedEmailBody(order);
 
-            await _emailService.SendEmailAsync(
+            await TrySendNotificationEmailAsync(
+                order.Id,
+                "order confirmation",
                 user.Email,
                 "Your Mercato order has been placed successfully",
                 emailBody,
@@ -153,7 +159,9 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
         {
             var stockAlertBody = BuildLowStockAlertEmailBody(lowStockProducts);
 
-            await _emailService.SendEmailAsync(
+            await TrySendNotificationEmailAsync(
+                order.Id,
+                "low stock alert",
                 _emailOptions.AdminEmail,
                 "Mercato low stock alert",
                 stockAlertBody,
@@ -169,6 +177,35 @@ public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Cre
             CouponCode = order.CouponCode,
             CreatedAtUtc = order.CreatedAtUtc
         };
+    }
+
+    private async Task TrySendNotificationEmailAsync(
+        int orderId,
+        string emailPurpose,
+        string recipient,
+        string subject,
+        string body,
+        CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+
+        try
+        {
+            await _emailService.SendEmailAsync(recipient, subject, body, timeout.Token);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Failed to send {EmailPurpose} for order {OrderId}; order checkout will continue.",
+                emailPurpose,
+                orderId);
+        }
     }
 
     private static string BuildOrderPlacedEmailBody(Order order)

@@ -16,8 +16,9 @@ import { request } from './api.js';
 import { useStore } from './store.jsx';
 import AdminPage from './Admin.jsx';
 
-const money = (value) => new Intl.NumberFormat('en-US', {
-  style: 'currency', currency: 'USD', maximumFractionDigits: 2,
+const paymentProvider = String(import.meta.env.VITE_PAYMENT_PROVIDER || 'Stripe').toLowerCase() === 'mock' ? 'Mock' : 'Stripe';
+const money = (value) => new Intl.NumberFormat('az-AZ', {
+  style: 'currency', currency: 'AZN', maximumFractionDigits: 2,
 }).format(Number(value || 0));
 
 function Stars({ value = 0 }) {
@@ -26,15 +27,16 @@ function Stars({ value = 0 }) {
 }
 
 const categoryArt = (product) => {
-  const name = String(product?.name || product?.productName || '').toLowerCase();
-  const category = String(product?.categoryName || '').toLowerCase();
-  if (/tablet|ipad|galaxy tab|matepad|surface pro/.test(name) || /tablet/.test(category)) return Tablet;
-  if (/laptop|macbook|legion|zenbook|victus|xps|katana|ideapad/.test(name) || /laptop/.test(category)) return Laptop;
-  if (/iphone|smartphone|mobile phone|pixel|xiaomi|oneplus|galaxy s\d|phone/.test(name) || /phone/.test(category)) return Smartphone;
+  const name = String(typeof product === 'string' ? product : product?.name || product?.productName || '').toLowerCase();
+  const category = String(typeof product === 'string' ? product : product?.categoryName || '').toLowerCase();
+  if (/tablet|ipad|galaxy tab|matepad|surface pro|planşet/.test(name) || /tablet|planşet/.test(category)) return Tablet;
+  if (/laptop|macbook|legion|zenbook|victus|xps|katana|ideapad|notbuk|noutbuk/.test(name) || /laptop|notbuk|noutbuk/.test(category)) return Laptop;
   if (/monitor|ultragear|odyssey|ultrasharp|mobiuz/.test(name) || /monitor/.test(category)) return Monitor;
-  if (/keyboard|blackwidow|keychron|apex pro|huntsman|mx keys|k70 rgb/.test(name) || /keyboard/.test(category)) return Keyboard;
-  if (/mouse|mice|g502|deathadder|mx master|model o|rival 5|basilisk|superlight/.test(name) || /mouse|mice/.test(category)) return Mouse;
-  if (/headset|headphone|arctis|cloud ii|wh-1000|quantum 800/.test(name) || /headset/.test(category)) return Headphones;
+  if (/keyboard|blackwidow|keychron|apex pro|huntsman|mx keys|k70 rgb|klaviatura/.test(name) || /keyboard|klaviatura/.test(category)) return Keyboard;
+  if (/mouse|mice|g502|deathadder|mx master|model o|rival 5|basilisk|superlight|siçan|mouse pad/.test(name) || /mouse|mice|siçan/.test(category)) return Mouse;
+  if (/headset|headphone|arctis|cloud ii|wh-1000|quantum 800|qulaqlıq|qulaqcıq/.test(name) || /headset|qulaqlıq|qulaqcıq/.test(category)) return Headphones;
+  if (/accessor|aksessuar/.test(category)) return /charger|power.?bank|adapter|cable|naqil|enerji|şüşə|tutacaq/.test(name) ? PlugZap : ShoppingBag;
+  if (/iphone|smartphone|mobile phone|pixel|xiaomi|oneplus|galaxy s\d|phone|telefon|tecno|redmi|honor|oppo/.test(name) || /phone|telefon/.test(category)) return Smartphone;
   if (/router|archer ax/.test(name)) return Router;
   if (/usb.?c cable|cable|usb hub|hub/.test(name)) return Cable;
   if (/charger|power adapter|adapter/.test(name)) return PlugZap;
@@ -126,7 +128,7 @@ function Header() {
         </div>
         <nav className="main-nav page-width" aria-label="Əsas menyu">
           <Link to="/products" className="nav-categories"><Menu size={15} /> Bütün kateqoriyalar <ChevronDown size={14} /></Link>
-          <div className="nav-links"><Link to="/products?sortBy=id&descending=true">Yenilər</Link><Link to="/products?sortBy=price&descending=false">Qiyməti münasib</Link><Link to="/products?search=trend">Trenddə</Link></div>
+          <div className="nav-links"><Link to="/products?sortBy=id&descending=true">Yenilər</Link><Link to="/products?sortBy=price&descending=false">Qiyməti münasib</Link><Link to="/products?sortBy=popular&descending=true">Trenddə</Link></div>
           <Link to={isAdmin ? '/admin' : '/products'} className="nav-promo">{isAdmin ? 'İdarə paneli' : 'Həftənin seçimi'} <ArrowUpRight size={15} /></Link>
         </nav>
       </header>
@@ -295,7 +297,8 @@ function CatalogPage() {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const page = Number(params.get('page') || 1);
+  const requestedPage = Number(params.get('page') || 1);
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const search = params.get('search') || '';
   const categoryId = params.get('categoryId') || '';
   const sortBy = params.get('sortBy') || 'id';
@@ -304,32 +307,51 @@ function CatalogPage() {
 
   useEffect(() => { request('/Categories').then((value) => setCategories(Array.isArray(value) ? value : [])).catch(() => {}); }, []);
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     const query = new URLSearchParams({ pageNumber: String(page), pageSize: '12', sortBy, descending: String(descending) });
     if (search) query.set('search', search);
     if (categoryId) query.set('categoryId', categoryId);
     request(`/Products?${query}`).then((result) => {
+      if (cancelled) return;
       setProducts(result?.items || []);
       setResultPage({ totalCount: result?.totalCount || 0, totalPages: result?.totalPages || 0 });
-    }).catch((error) => notify(error.message, 'error')).finally(() => setLoading(false));
-  }, [page, search, categoryId, sortBy, descending, notify]);
+      const effectivePage = Number(result?.pageNumber) || 1;
+      if (effectivePage !== page) {
+        setParams((current) => {
+          const next = new URLSearchParams(current);
+          if (effectivePage === 1) next.delete('page');
+          else next.set('page', String(effectivePage));
+          return next;
+        }, { replace: true });
+      }
+    }).catch((error) => {
+      if (!cancelled) notify(error.message, 'error');
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [page, search, categoryId, sortBy, descending, notify, setParams]);
 
-  const title = categoryId ? categories.find((category) => String(category.id) === categoryId)?.name || 'Kateqoriya' : search ? `“${search}” üçün nəticələr` : 'Bütün məhsullar';
+  const title = categoryId ? categories.find((category) => String(category.id) === categoryId)?.name || 'Kateqoriya' : search ? `“${search}” üçün nəticələr` : sortBy === 'popular' ? 'Trenddə olan məhsullar' : 'Bütün məhsullar';
   const update = (key, value) => {
     const next = new URLSearchParams(params);
     if (!value) next.delete(key); else next.set(key, value);
+    if (key !== 'page') next.delete('page');
+    setParams(next);
+  };
+  const updateSort = (sort) => {
+    const next = new URLSearchParams(params);
+    next.set('sortBy', sort[0]);
+    next.set('descending', sort[1]);
     next.delete('page');
     setParams(next);
   };
 
   return <main className="page-width catalog-page">
     <div className="breadcrumbs"><Link to="/">Ana səhifə</Link><ChevronRight size={14} /><span>Alış-veriş</span></div>
-    <div className="catalog-title-row"><div><span className="eyebrow">MERCATO SEÇİMLƏRİ</span><h1>{title}</h1><p>{resultPage.totalCount} seçilmiş məhsul</p></div><label className="sort-select"><span>Sırala:</span><select value={sortBy === 'price' ? (descending ? 'price-desc' : 'price-asc') : sortBy === 'name' ? 'name' : 'newest'} onChange={(event) => {
-      const values = { newest: ['id', 'true'], 'price-asc': ['price', 'false'], 'price-desc': ['price', 'true'], name: ['name', 'false'] };
-      const [field, direction] = values[event.target.value];
-      update('sortBy', field);
-      const next = new URLSearchParams(params); next.set('sortBy', field); next.set('descending', direction); next.delete('page'); setParams(next);
-    }}><option value="newest">Ən yenilər</option><option value="price-asc">Qiymət: aşağıdan yuxarı</option><option value="price-desc">Qiymət: yuxarıdan aşağı</option><option value="name">Ada görə</option></select><ChevronDown size={15} /></label></div>
+    <div className="catalog-title-row"><div><span className="eyebrow">MERCATO SEÇİMLƏRİ</span><h1>{title}</h1><p>{resultPage.totalCount} seçilmiş məhsul</p></div><label className="sort-select"><span>Sırala:</span><select value={sortBy === 'popular' ? 'popular' : sortBy === 'price' ? (descending ? 'price-desc' : 'price-asc') : sortBy === 'name' ? 'name' : 'newest'} onChange={(event) => {
+      const values = { newest: ['id', 'true'], popular: ['popular', 'true'], 'price-asc': ['price', 'false'], 'price-desc': ['price', 'true'], name: ['name', 'false'] };
+      updateSort(values[event.target.value]);
+    }}><option value="newest">Ən yenilər</option><option value="popular">Ən çox satılan</option><option value="price-asc">Qiymət: aşağıdan yuxarı</option><option value="price-desc">Qiymət: yuxarıdan aşağı</option><option value="name">Ada görə</option></select><ChevronDown size={15} /></label></div>
     <div className="catalog-layout"><aside className="catalog-sidebar"><div className="filter-heading"><b>Kateqoriyalar</b><button onClick={() => setParams(new URLSearchParams())}>Təmizlə</button></div><button className={`filter-option${!categoryId ? ' selected' : ''}`} onClick={() => update('categoryId', '')}><span>Bütün məhsullar</span><ArrowRight size={14} /></button>{categories.map((category) => <button key={category.id} className={`filter-option${categoryId === String(category.id) ? ' selected' : ''}`} onClick={() => update('categoryId', String(category.id))}><span>{category.name}</span><ArrowRight size={14} /></button>)}<div className="sidebar-note"><CircleHelp size={16} /><span>Seçim etməkdə kömək lazımdır? <Link to="/">Ağıllı tövsiyəni sın</Link></span></div></aside>
       <section className="catalog-results"><ProductGrid products={products} loading={loading} />{resultPage.totalPages > 1 && <div className="pagination"><button disabled={page <= 1} onClick={() => update('page', String(page - 1))}><ChevronLeft size={17} /> Əvvəlki</button><span>Səhifə <b>{page}</b> / {resultPage.totalPages}</span><button disabled={page >= resultPage.totalPages} onClick={() => update('page', String(page + 1))}>Növbəti <ChevronRight size={17} /></button></div>}</section></div>
   </main>;
@@ -377,7 +399,7 @@ function ProductPage() {
   return <main className="page-width product-detail-page">
     <div className="breadcrumbs"><Link to="/">Ana səhifə</Link><ChevronRight size={14} /><Link to="/products">Məhsullar</Link><ChevronRight size={14} /><span>{product.name}</span></div>
     <div className="product-detail"><div className="detail-art-wrap"><Artwork product={product} large /><span className="detail-edition">MERCATO SEÇİMİ</span></div><div className="detail-info"><span className="eyebrow">{product.categoryName || 'SEÇİLMİŞ MƏHSUL'}</span><h1>{product.name}</h1><div className="detail-rating"><Stars value={reviews?.averageRating || 0} /><span>{reviews?.averageRating ? Number(reviews.averageRating).toFixed(1) : '—'}</span><a href="#reviews">({reviews?.reviewCount || 0} rəy)</a></div><strong className="detail-price">{money(product.price)}</strong><p className="detail-description">{product.description || 'Gündəlik həyatına yaraşan, diqqətlə seçilmiş bir məhsul. İndi səbətinə əlavə et və öz Mercato seçimini et.'}</p><div className={`stock-note${stock <= 0 ? ' out' : ''}`}><span />{stock > 0 ? `${stock} ədəd stokda mövcuddur` : 'Hazırda stokda yoxdur'}</div><div className="detail-buy-row"><div className="quantity-control"><button onClick={() => setQuantity(Math.max(1, quantity - 1))} aria-label="Azalt"><Minus size={15} /></button><span>{quantity}</span><button onClick={() => setQuantity(Math.min(stock || 1, quantity + 1))} aria-label="Artır"><Plus size={15} /></button></div><button className="button button-dark detail-buy" disabled={stock <= 0} onClick={add}><ShoppingBag size={17} /> Səbətə əlavə et <span>{money(product.price * quantity)}</span></button></div><div className="detail-perks"><span><Truck size={16} /> Sifariş məlumatları hesabında görünür</span><span><ShieldCheck size={16} /> Hesabın qorunur</span><span><Clock3 size={16} /> Sifarişlərini hesabında izlə</span></div><div className="detail-category"><span>Məhsul kodu</span><b>MC-{String(product.id).padStart(4, '0')}</b></div></div></div>
-    <section className="reviews-section" id="reviews"><div className="reviews-heading"><div><span className="eyebrow">İSTİFADƏÇİ RƏYLƏRİ</span><h2>Seçimini edənlər nə deyir?</h2></div><div className="reviews-average"><strong>{reviews?.averageRating ? Number(reviews.averageRating).toFixed(1) : '—'}</strong><Stars value={reviews?.averageRating || 0} /><small>{reviews?.reviewCount || 0} rəy</small></div></div><div className="reviews-layout"><div className="reviews-list">{reviews?.reviews?.length ? reviews.reviews.map((review) => <article className="review-card" key={review.reviewId}><div className="review-avatar">{String(review.userId || 'M')[0].toUpperCase()}</div><div><div className="review-user"><b>Mercato alıcısı</b><span>{new Date(review.createdAtUtc).toLocaleDateString('az-AZ')}</span></div><div className="rating-stars">{'★'.repeat(Math.max(0, Number(review.rating) || 0))}{'☆'.repeat(Math.max(0, 5 - (Number(review.rating) || 0)))}</div><p>{review.comment || 'Bu məhsul barədə əlavə qeyd yoxdur.'}</p></div></article>) : <EmptyState title="Hələ rəy yoxdur" text="Bu məhsulu ilk qiymətləndirən sən ol." />}</div>{token ? <form className="review-form" onSubmit={submitReview}><b>Rəyini paylaş</b><label>Qiymətləndirmən</label><div className="rating-picker">{[1, 2, 3, 4, 5].map((value) => <button type="button" key={value} onClick={() => setRating(value)} aria-label={`${value} ulduz`}><Star size={21} fill={value <= rating ? 'currentColor' : 'none'} /></button>)}</div><label htmlFor="review-comment">Qısa rəy</label><textarea id="review-comment" value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Təcrübəni bölüş..." rows="4" /><button className="button button-dark" disabled={reviewBusy}>{reviewBusy ? 'Göndərilir...' : 'Rəy əlavə et'} <ArrowRight size={15} /></button></form> : <div className="review-login"><span><LogIn size={17} /></span><b>Rəy yazmaq istəyirsən?</b><p>Rəyini paylaşmaq üçün hesabına daxil ol.</p><Link to="/login" className="text-link">Daxil ol <ArrowRight size={15} /></Link></div>}</div></section>
+    <section className="reviews-section" id="reviews"><div className="reviews-heading"><div><span className="eyebrow">İSTİFADƏÇİ RƏYLƏRİ</span><h2>Seçimini edənlər nə deyir?</h2></div><div className="reviews-average"><strong>{reviews?.averageRating ? Number(reviews.averageRating).toFixed(1) : '—'}</strong><Stars value={reviews?.averageRating || 0} /><small>{reviews?.reviewCount || 0} rəy</small></div></div><div className="reviews-layout"><div className="reviews-list">{reviews?.reviews?.length ? reviews.reviews.map((review) => <article className="review-card" key={review.reviewId}><div className="review-avatar">{String(review.userId || 'M')[0].toUpperCase()}</div><div><div className="review-user"><b>Mercato alıcısı</b><span>{new Date(review.createdAtUtc).toLocaleDateString('az-AZ')}</span></div><div className="rating-stars">{'★'.repeat(Math.max(0, Number(review.rating) || 0))}{'☆'.repeat(Math.max(0, 5 - (Number(review.rating) || 0)))}</div><p>{review.comment || 'Bu məhsul barədə əlavə qeyd yoxdur.'}</p></div></article>) : <EmptyState title="Hələ rəy yoxdur" text="Bu məhsulu ilk qiymətləndirən sən ol." />}</div>{token ? <form className="review-form" onSubmit={submitReview}><b>Rəyini paylaş</b><small className="review-note">Yalnız bu məhsulu almış müştərilər rəy yaza bilər.</small><label>Qiymətləndirmən</label><div className="rating-picker">{[1, 2, 3, 4, 5].map((value) => <button type="button" key={value} onClick={() => setRating(value)} aria-label={`${value} ulduz`}><Star size={21} fill={value <= rating ? 'currentColor' : 'none'} /></button>)}</div><label htmlFor="review-comment">Qısa rəy</label><textarea id="review-comment" value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Təcrübəni bölüş..." rows="4" /><button className="button button-dark" disabled={reviewBusy}>{reviewBusy ? 'Göndərilir...' : 'Rəy əlavə et'} <ArrowRight size={15} /></button></form> : <div className="review-login"><span><LogIn size={17} /></span><b>Rəy yazmaq istəyirsən?</b><p>Rəyini paylaşmaq üçün hesabına daxil ol.</p><Link to="/login" className="text-link">Daxil ol <ArrowRight size={15} /></Link></div>}</div></section>
   </main>;
 }
 
@@ -396,27 +418,39 @@ function CartPage() {
     }
     if (!cart.length) return;
     setBusy(true);
+    let createdOrder = null;
     try {
+      if (paymentProvider === 'Stripe') {
+        const availability = await request('/Payments/stripe/availability');
+        if (!availability?.ready) throw new Error(availability?.message || 'Stripe Checkout hazır deyil.');
+      }
       const order = await request('/Orders', { method: 'POST', body: { couponCode: coupon.trim() || null } });
+      createdOrder = order;
       await refreshCart();
-      const payment = await request(`/Payments/create/${order.orderId}?provider=Mock`, { method: 'POST' });
-      if (String(payment?.checkoutUrl || '').startsWith('mock://')) {
+      const payment = await request(`/Payments/create/${order.orderId}?provider=${paymentProvider}`, { method: 'POST' });
+      if (paymentProvider === 'Mock' && String(payment?.checkoutUrl || '').startsWith('mock://')) {
         await request(`/Payments/mock/success/${order.orderId}`, { method: 'POST' });
         await refreshCart();
         navigate(`/order-complete/${order.orderId}`, { state: { order } });
       } else if (payment?.checkoutUrl) {
         window.location.assign(payment.checkoutUrl);
       } else {
-        await refreshCart();
-        navigate(`/order-complete/${order.orderId}`, { state: { order } });
+        throw new Error('Stripe Checkout səhifəsinin ünvanı alınmadı.');
       }
-    } catch (error) { notify(error.message, 'error'); }
+    } catch (error) {
+      if (createdOrder?.orderId) {
+        navigate(`/order-complete/${createdOrder.orderId}?payment=retry`, { state: { order: createdOrder } });
+        notify(`Sifariş yaradıldı, amma ödəniş səhifəsi açılmadı: ${error.message}`, 'error');
+      } else {
+        notify(error.message, 'error');
+      }
+    }
     finally { setBusy(false); }
   };
 
   if (!cart.length) return <main className="page-width cart-page"><div className="breadcrumbs"><Link to="/">Ana səhifə</Link><ChevronRight size={14} /><span>Səbət</span></div><div className="empty-cart"><span className="empty-cart-icon"><ShoppingBag size={30} /></span><span className="eyebrow">SƏBƏTİN SƏNİ GÖZLƏYİR</span><h1>Hələ heç nə seçməmisən.</h1><p>Mercato-da bir az gəz, bəyəndiklərini səbətə əlavə et.</p><Link to="/products" className="button button-dark">Məhsullara bax <ArrowRight size={16} /></Link></div></main>;
 
-  return <main className="page-width cart-page"><div className="breadcrumbs"><Link to="/">Ana səhifə</Link><ChevronRight size={14} /><span>Səbət</span></div><div className="cart-title"><div><span className="eyebrow">SEÇİMLƏRİN BURADADIR</span><h1>Sənin səbətin <small>({cart.length} məhsul)</small></h1></div><Link to="/products" className="text-link">Alış-verişə davam et <ArrowRight size={15} /></Link></div><div className="cart-layout"><section className="cart-items"><div className="cart-table-head"><span>Məhsul</span><span>Qiymət</span><span>Miqdar</span><span>Cəmi</span></div>{cart.map((item) => <article className="cart-item" key={item.cartItemId || item.productId}><Link to={`/products/${item.productId}`} className="cart-item-art"><Artwork product={{ ...item, id: item.productId }} /></Link><div className="cart-item-title"><Link to={`/products/${item.productId}`}>{item.productName}</Link><span>{item.categoryName || 'Mercato seçimi'}</span><button onClick={() => removeFromCart(item)} className="remove-mobile"><Trash2 size={14} /> Sil</button></div><span className="cart-item-price">{money(item.unitPrice)}</span><div className="quantity-control cart-quantity"><button onClick={() => updateQuantity(item, item.quantity - 1)} disabled={item.quantity <= 1} aria-label="Azalt"><Minus size={14} /></button><span>{item.quantity}</span><button onClick={() => updateQuantity(item, item.quantity + 1)} aria-label="Artır"><Plus size={14} /></button></div><div className="cart-item-total"><b>{money(item.totalPrice || item.unitPrice * item.quantity)}</b><button onClick={() => removeFromCart(item)} aria-label="Məhsulu sil"><Trash2 size={15} /></button></div></article>)}<div className="cart-support-note"><span><ShieldCheck size={17} /></span><div><b>Rahat alış-veriş</b><small>Sifarişin emal zamanı məlumatların qorunur.</small></div></div></section><aside className="order-summary"><span className="eyebrow">SİFARİŞİN</span><h2>Yekun</h2><div className="summary-row"><span>Ara cəm</span><b>{money(cartTotal)}</b></div><label className="coupon-label" htmlFor="coupon">Kupon kodun var?</label><div className="coupon-input"><Tag size={16} /><input id="coupon" value={coupon} onChange={(event) => setCoupon(event.target.value)} placeholder="Kodu daxil et" /></div><div className="summary-total"><span>Ümumi məbləğ</span><b>{money(cartTotal)}</b></div><button className="button button-dark checkout-button" onClick={checkout} disabled={busy}>{busy ? <><span className="spinner" /> Sifariş hazırlanır...</> : <>Sifarişi tamamla <ArrowRight size={16} /></>}</button><p className="checkout-login-note">{token ? <>Hesab: <b>{email}</b></> : <>Davam etmək üçün <Link to="/login" state={{ from: '/cart' }}>daxil ol</Link> və ya qeydiyyatdan keç.</>}</p><div className="checkout-security"><CreditCard size={14} /> Demo ödənişi — kartdan pul çıxılmır</div></aside></div></main>;
+  return <main className="page-width cart-page"><div className="breadcrumbs"><Link to="/">Ana səhifə</Link><ChevronRight size={14} /><span>Səbət</span></div><div className="cart-title"><div><span className="eyebrow">SEÇİMLƏRİN BURADADIR</span><h1>Sənin səbətin <small>({cart.length} məhsul)</small></h1></div><Link to="/products" className="text-link">Alış-verişə davam et <ArrowRight size={15} /></Link></div><div className="cart-layout"><section className="cart-items"><div className="cart-table-head"><span>Məhsul</span><span>Qiymət</span><span>Miqdar</span><span>Cəmi</span></div>{cart.map((item) => <article className="cart-item" key={item.cartItemId || item.productId}><Link to={`/products/${item.productId}`} className="cart-item-art"><Artwork product={{ ...item, id: item.productId }} /></Link><div className="cart-item-title"><Link to={`/products/${item.productId}`}>{item.productName}</Link><span>{item.categoryName || 'Mercato seçimi'}</span><button onClick={() => removeFromCart(item)} className="remove-mobile"><Trash2 size={14} /> Sil</button></div><span className="cart-item-price">{money(item.unitPrice)}</span><div className="quantity-control cart-quantity"><button onClick={() => updateQuantity(item, item.quantity - 1)} disabled={item.quantity <= 1} aria-label="Azalt"><Minus size={14} /></button><span>{item.quantity}</span><button onClick={() => updateQuantity(item, item.quantity + 1)} aria-label="Artır"><Plus size={14} /></button></div><div className="cart-item-total"><b>{money(item.totalPrice || item.unitPrice * item.quantity)}</b><button onClick={() => removeFromCart(item)} aria-label="Məhsulu sil"><Trash2 size={15} /></button></div></article>)}<div className="cart-support-note"><span><ShieldCheck size={17} /></span><div><b>Rahat alış-veriş</b><small>Sifarişin emal zamanı məlumatların qorunur.</small></div></div></section><aside className="order-summary"><span className="eyebrow">SİFARİŞİN</span><h2>Yekun</h2><div className="summary-row"><span>Ara cəm</span><b>{money(cartTotal)}</b></div><label className="coupon-label" htmlFor="coupon">Kupon kodun var?</label><div className="coupon-input"><Tag size={16} /><input id="coupon" value={coupon} onChange={(event) => setCoupon(event.target.value)} placeholder="Kodu daxil et" /></div><div className="summary-total"><span>Ümumi məbləğ</span><b>{money(cartTotal)}</b></div><button className="button button-dark checkout-button" onClick={checkout} disabled={busy}>{busy ? <><span className="spinner" /> Sifariş hazırlanır...</> : <>Sifarişi tamamla <ArrowRight size={16} /></>}</button><p className="checkout-login-note">{token ? <>Hesab: <b>{email}</b></> : <>Davam etmək üçün <Link to="/login" state={{ from: '/cart' }}>daxil ol</Link> və ya qeydiyyatdan keç.</>}</p><div className="checkout-security"><CreditCard size={14} /> {paymentProvider === 'Mock' ? 'Demo ödənişi — kartdan pul çıxılmır' : 'Təhlükəsiz ödəniş Stripe Checkout vasitəsilə'}</div></aside></div></main>;
 }
 
 function AuthPage() {
@@ -478,7 +512,71 @@ function WishlistPage() {
 
 function OrderCompletePage() {
   const { id } = useParams();
-  return <main className="page-width order-complete"><span className="complete-check"><Check size={34} /></span><span className="eyebrow">SİFARİŞİN QƏBUL OLUNDU</span><h1>Yaxşı seçim etdin.</h1><p>Sifarişin #{String(id).padStart(5, '0')} uğurla tamamlandı. Ətraflı məlumat hesabındakı sifariş tarixçəsində olacaq.</p><div className="complete-actions"><Link to="/account" className="button button-dark">Sifarişlərimə bax <ArrowRight size={16} /></Link><Link to="/products" className="button button-outline">Alış-verişə davam et</Link></div><div className="complete-note"><Truck size={17} /> Sifarişin hazırlananda sənə xəbər verəcəyik.</div></main>;
+  const location = useLocation();
+  const { notify } = useStore();
+  const [payment, setPayment] = useState(null);
+  const [checking, setChecking] = useState(true);
+  const [retryBusy, setRetryBusy] = useState(false);
+  const [retryError, setRetryError] = useState('');
+  const [status, setStatus] = useState('checking');
+  const cancelled = new URLSearchParams(location.search).get('payment') === 'cancelled';
+
+  useEffect(() => {
+    let disposed = false;
+    let timer;
+    let attempts = 0;
+    const checkPayment = async () => {
+      try {
+        const result = await request(`/Payments/order/${id}`);
+        if (disposed) return;
+        setPayment(result);
+        const paymentStatus = typeof result?.status === 'string'
+          ? result.status.toLowerCase()
+          : Number(result?.status) === 2 ? 'succeeded' : [3, 4].includes(Number(result?.status)) ? 'failed' : 'pending';
+        if (paymentStatus === 'succeeded') {
+          setStatus('succeeded');
+          setChecking(false);
+        } else if (paymentStatus === 'failed' || paymentStatus === 'cancelled') {
+          setStatus('failed');
+          setChecking(false);
+        } else if (attempts++ < 6) {
+          timer = window.setTimeout(checkPayment, 2000);
+        } else {
+          setStatus('pending');
+          setChecking(false);
+        }
+      } catch {
+        if (disposed) return;
+        if (attempts++ < 2) timer = window.setTimeout(checkPayment, 1500);
+        else { setStatus('pending'); setChecking(false); }
+      }
+    };
+    checkPayment();
+    return () => { disposed = true; window.clearTimeout(timer); };
+  }, [id]);
+
+  const resumePayment = async () => {
+    setRetryBusy(true);
+    setRetryError('');
+    try {
+      if (payment?.checkoutUrl?.startsWith('https://checkout.stripe.com/')) {
+        window.location.assign(payment.checkoutUrl);
+        return;
+      }
+      const availability = await request('/Payments/stripe/availability');
+      if (!availability?.ready) throw new Error(availability?.message || 'Stripe Checkout hazır deyil.');
+      const result = await request(`/Payments/create/${id}?provider=Stripe`, { method: 'POST' });
+      if (!result?.checkoutUrl) throw new Error('Stripe Checkout səhifəsinin ünvanı alınmadı.');
+      window.location.assign(result.checkoutUrl);
+    } catch (error) {
+      setRetryError(error.message);
+      notify(error.message, 'error');
+    } finally { setRetryBusy(false); }
+  };
+
+  const paid = status === 'succeeded';
+  const failed = status === 'failed';
+  return <main className="page-width order-complete"><span className="complete-check"><Check size={34} /></span><span className="eyebrow">{paid ? 'ÖDƏNİŞ TƏSDİQLƏNDİ' : failed ? 'ÖDƏNİŞ TAMAMLANMADI' : 'ÖDƏNİŞ GÖZLƏNİLİR'}</span><h1>{paid ? 'Yaxşı seçim etdin.' : failed ? 'Ödəniş tamamlanmadı.' : checking ? 'Ödəniş yoxlanılır.' : 'Ödəniş təsdiqini gözləyir.'}</h1><p>{paid ? `Sifarişin #${String(id).padStart(5, '0')} ödənildi. Ətraflı məlumat hesabındakı sifariş tarixçəsindədir.` : cancelled ? 'Stripe Checkout-dan ödənişi tamamlamadan qayıtdın. Sifarişin saxlanılıb, istəsən ödənişi yenidən davam etdirə bilərsən.' : checking ? 'Stripe-dan təsdiq cavabı gözləyirik. Bu adətən bir neçə saniyə çəkir.' : `Sifarişin #${String(id).padStart(5, '0')} yaradılıb, amma ödəniş hələ təsdiqlənməyib.`}</p>{retryError && <div className="form-message error-message">{retryError}</div>}<div className="complete-actions">{!paid && paymentProvider === 'Stripe' && <button className="button button-dark" onClick={resumePayment} disabled={retryBusy}>{retryBusy ? 'Açılır...' : payment?.checkoutUrl ? 'Ödənişi davam et' : 'Stripe ilə yenidən yoxla'} <ArrowRight size={16} /></button>}<Link to="/account" className="button button-outline">Sifarişlərimə bax <ArrowRight size={16} /></Link><Link to="/products" className="button button-outline">Alış-verişə davam et</Link></div><div className="complete-note"><Truck size={17} />{paid ? 'Sifarişin hazırlananda sənə xəbər verəcəyik.' : 'Ödəniş statusunu hesabından da görə bilərsən.'}</div></main>;
 }
 
 function App() {

@@ -10,18 +10,23 @@ public class CreatePaymentCommandHandler : IRequestHandler<CreatePaymentCommand,
 {
     private readonly IApplicationDbContext _context;
     private readonly IPaymentServiceFactory _paymentServiceFactory;
+    private readonly ICurrentUserService _currentUserService;
 
     public CreatePaymentCommandHandler(
         IApplicationDbContext context,
-        IPaymentServiceFactory paymentServiceFactory)
+        IPaymentServiceFactory paymentServiceFactory,
+        ICurrentUserService currentUserService)
     {
         _context = context;
         _paymentServiceFactory = paymentServiceFactory;
+        _currentUserService = currentUserService;
     }
 
     public async Task<CreatePaymentResponseDto> Handle(CreatePaymentCommand request, CancellationToken cancellationToken)
     {
-        var order = await _context.GetOrderByIdAsync(request.OrderId, cancellationToken);
+        var userId = _currentUserService.UserId
+            ?? throw new UnauthorizedAccessException("User is not authenticated.");
+        var order = await _context.GetUserOrderByIdAsync(request.OrderId, userId, cancellationToken);
 
         if (order is null)
         {
@@ -37,7 +42,21 @@ public class CreatePaymentCommandHandler : IRequestHandler<CreatePaymentCommand,
 
         if (existingPendingPayment is not null && existingPendingPayment.Status == PaymentStatus.Pending)
         {
-            throw new Exception("There is already a pending payment for this order.");
+            if (existingPendingPayment.Provider != request.Provider)
+                throw new InvalidOperationException("Bu sifariş üçün başqa ödəniş üsulu ilə gözləyən sessiya var.");
+
+            return new CreatePaymentResponseDto
+            {
+                PaymentId = existingPendingPayment.Id,
+                OrderId = order.Id,
+                Provider = existingPendingPayment.Provider,
+                Status = existingPendingPayment.Status,
+                Currency = existingPendingPayment.Currency,
+                ExternalPaymentId = existingPendingPayment.ExternalPaymentId,
+                CheckoutUrl = existingPendingPayment.CheckoutUrl,
+                ClientSecret = existingPendingPayment.ClientSecret,
+                FailureReason = existingPendingPayment.FailureReason
+            };
         }
 
         var paymentService = _paymentServiceFactory.GetService(request.Provider);
@@ -49,7 +68,7 @@ public class CreatePaymentCommandHandler : IRequestHandler<CreatePaymentCommand,
             OrderId = order.Id,
             Provider = request.Provider,
             Amount = order.TotalPrice,
-            Currency = "usd",
+            Currency = paymentResponse.Currency,
             Status = PaymentStatus.Pending,
             ExternalPaymentId = paymentResponse.ExternalPaymentId,
             CheckoutUrl = paymentResponse.CheckoutUrl,

@@ -8,8 +8,8 @@ import { Link, Navigate } from 'react-router-dom';
 import { request } from './api.js';
 import { useStore } from './store.jsx';
 
-const money = (value) => new Intl.NumberFormat('en-US', {
-  style: 'currency', currency: 'USD', maximumFractionDigits: 2,
+const money = (value) => new Intl.NumberFormat('az-AZ', {
+  style: 'currency', currency: 'AZN', maximumFractionDigits: 2,
 }).format(Number(value || 0));
 
 const statusOptions = [

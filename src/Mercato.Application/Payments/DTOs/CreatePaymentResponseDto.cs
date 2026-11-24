@@ -8,6 +8,7 @@ public class CreatePaymentResponseDto
     public int OrderId { get; set; }
     public PaymentProvider Provider { get; set; }
     public PaymentStatus Status { get; set; }
+    public string Currency { get; set; } = "azn";
     public string? ExternalPaymentId { get; set; }
     public string? CheckoutUrl { get; set; }
     public string? ClientSecret { get; set; }

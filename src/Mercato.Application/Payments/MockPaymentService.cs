@@ -19,6 +19,7 @@ public class MockPaymentService : IPaymentService
             OrderId = order.Id,
             Provider = PaymentProvider.Mock,
             Status = PaymentStatus.Pending,
+            Currency = "azn",
             ExternalPaymentId = externalPaymentId,
             CheckoutUrl = $"mock://payment/{order.Id}",
             ClientSecret = null,

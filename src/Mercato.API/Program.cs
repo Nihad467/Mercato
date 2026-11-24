@@ -106,8 +106,8 @@ try
 
     builder.Services.AddScoped<IEmailService, EmailService>();
 
-    builder.Services.AddScoped<MockPaymentService>();
-    builder.Services.AddScoped<StripePaymentService>();
+    builder.Services.AddScoped<IPaymentService, MockPaymentService>();
+    builder.Services.AddScoped<IPaymentService, StripePaymentService>();
     builder.Services.AddScoped<IPaymentServiceFactory, PaymentServiceFactory>();
 
     builder.Services

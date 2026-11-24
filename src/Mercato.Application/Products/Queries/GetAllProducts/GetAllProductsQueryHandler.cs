@@ -51,6 +51,7 @@ public class GetAllProductsQueryHandler
     {
         var parametersJson = JsonSerializer.Serialize(request.Parameters);
 
-        return $"{CacheKeys.ProductsListPrefix}:{parametersJson}";
+        // Bump the key version so stale responses from the previous pagination behavior are ignored.
+        return $"{CacheKeys.ProductsListPrefix}:v2:{parametersJson}";
     }
 }
